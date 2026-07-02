@@ -19,21 +19,48 @@ $RAW_URL  = 'https://raw.githubusercontent.com/zhoel-sherk/pwshcode/main'
 
 if ($IS_WEB) {
     $tmpDir = "$env:TEMP\pwshcode-install-$([System.IO.Path]::GetRandomFileName())"
+    $null = New-Item -ItemType Directory -Path $tmpDir -Force
+
+    # Try ZIP download first (fast, no git needed)
+    $zipUrl = "https://github.com/zhoel-sherk/pwshcode/archive/main.zip"
+    $zipPath = "$tmpDir\repo.zip"
     Write-Host "`n ⏳ Скачиваю pwshcode..." -ForegroundColor Cyan
+    Write-Muted "   $zipUrl"
+
+    $zipOk = $false
     try {
-        $null = New-Item -ItemType Directory -Path $tmpDir -Force
-        # Download repo as ZIP
-        $zipUrl = "https://github.com/zhoel-sherk/pwshcode/archive/main.zip"
-        $zipPath = "$tmpDir\repo.zip"
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
-        Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
-        $repoRoot = Get-ChildItem -LiteralPath $tmpDir -Directory | Select-Object -First 1 -ExpandProperty FullName
-        if (-not $repoRoot) { throw "Не удалось распаковать репозиторий" }
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+        if ((Get-Item $zipPath).Length -gt 1000) {
+            Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force -ErrorAction Stop
+            $repoRoot = Get-ChildItem -LiteralPath $tmpDir -Directory | Select-Object -First 1 -ExpandProperty FullName
+            if ($repoRoot) { $zipOk = $true }
+        }
     } catch {
-        Write-Host " ✘ Ошибка загрузки: $_" -ForegroundColor Red
-        if (Test-Path $tmpDir) { Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue }
+        Write-Warn "ZIP download failed: $_"
+    }
+
+    # Fallback: git clone
+    if (-not $zipOk) {
+        Write-Muted "   Пробую git clone..."
+        $gitDir = "$tmpDir\pwshcode"
+        try {
+            git clone $REPO_URL $gitDir 2>&1 | Out-Null
+            $repoRoot = $gitDir
+            if (Test-Path "$repoRoot\install.ps1") { $zipOk = $true }
+        } catch {
+            Write-Host "   git clone тоже не сработал: $_" -ForegroundColor Red
+        }
+    }
+
+    if (-not $zipOk) {
+        Write-Host " ✘ Не удалось загрузить репозиторий. Проверьте:" -ForegroundColor Red
+        Write-Host "   1. Доступ к github.com (файрвол/прокси?)" -ForegroundColor Red
+        Write-Host "   2. Установлен ли git (для fallback)" -ForegroundColor Red
+        Write-Host "   3. Затем запустите: git clone $REPO_URL" -ForegroundColor Red
+        Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
         exit 1
     }
+    Write-OK "Репозиторий загружен"
 } else {
     $repoRoot = $PSScriptRoot
 }
