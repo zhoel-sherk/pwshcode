@@ -7,13 +7,13 @@ PowerShell 7 profile + opencode skills for AI coding agents on Windows.
 **Одной командой (GitHub):**
 
 ```powershell
-irm https://raw.githubusercontent.com/Roriman/pwshcode/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/zhoel-sherk/pwshcode/main/install.ps1 | iex
 ```
 
 **Или локально:**
 
 ```powershell
-git clone https://github.com/Roriman/pwshcode.git $env:USERPROFILE\pwshcode
+git clone https://github.com/zhoel-sherk/pwshcode.git $env:USERPROFILE\pwshcode
 cd $env:USERPROFILE\pwshcode
 .\install.ps1
 ```
@@ -63,7 +63,7 @@ pwshcode/
 
 ## Перед публикацией
 
-Репозиторий: https://github.com/Roriman/pwshcode
+Репозиторий: https://github.com/zhoel-sherk/pwshcode
 
 ## Лицензия
 

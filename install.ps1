@@ -7,15 +7,15 @@
 .DESCRIPTION
     Работает в двух режимах:
       1. Локально:  .\install.ps1
-      2. Из сети:   irm https://raw.githubusercontent.com/<user>/pwshcode/main/install.ps1 | iex
+      2. Из сети:   irm https://raw.githubusercontent.com/zhoel-sherk/pwshcode/main/install.ps1 | iex
 
     Показывает меню: выбор скиллов, настройка $PROFILE, установка winget-зависимостей.
 #>
 
 #region ─── Bootstrap: web vs local ─────────────────────────
 $IS_WEB = [string]::IsNullOrEmpty($PSScriptRoot) -or $MyInvocation.MyCommand.Path -like '*Invoke-Expression*'
-$REPO_URL = 'https://github.com/Roriman/pwshcode.git'
-$RAW_URL  = 'https://raw.githubusercontent.com/Roriman/pwshcode/main'
+$REPO_URL = 'https://github.com/zhoel-sherk/pwshcode.git'
+$RAW_URL  = 'https://raw.githubusercontent.com/zhoel-sherk/pwshcode/main'
 
 if ($IS_WEB) {
     $tmpDir = "$env:TEMP\pwshcode-install-$([System.IO.Path]::GetRandomFileName())"
@@ -23,7 +23,7 @@ if ($IS_WEB) {
     try {
         $null = New-Item -ItemType Directory -Path $tmpDir -Force
         # Download repo as ZIP
-        $zipUrl = "https://github.com/Roriman/pwshcode/archive/main.zip"
+        $zipUrl = "https://github.com/zhoel-sherk/pwshcode/archive/main.zip"
         $zipPath = "$tmpDir\repo.zip"
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
         Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
@@ -107,7 +107,7 @@ $($C.Bold)$($C.Magenta)
      ╚═╝      ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
 $($C.Reset)
 $($C.Dim)  PowerShell 7 + opencode skills installer$($C.Reset)
-$($C.Dim)  https://github.com/Roriman/pwshcode$($C.Reset)
+$($C.Dim)  https://github.com/zhoel-sherk/pwshcode$($C.Reset)
 
 "@
 #endregion
