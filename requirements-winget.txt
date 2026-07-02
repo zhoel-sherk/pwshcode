@@ -1,0 +1,23 @@
+# pwshcode — winget requirements (all required)
+# Install: .\Install-WingetRequirements.ps1
+
+# [core] — shell, profile, search
+Microsoft.PowerShell
+Git.Git
+GitHub.cli
+Starship.Starship
+eza-community.eza
+sharkdp.bat
+BurntSushi.ripgrep.MSVC
+sharkdp.fd
+
+# [core] — agent tooling (JSON, diff, Python, tasks, YAML)
+jqlang.jq
+dandavison.delta
+astral-sh.uv
+Casey.Just
+MikeFarah.yq
+
+# [core] — navigation, elevation
+ajeetdsouza.zoxide
+gerardog.gsudo
