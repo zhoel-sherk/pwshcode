@@ -56,26 +56,13 @@ if (-not $script:IsAgentShell) {
 }
 $ProgressPreference = 'SilentlyContinue'
 
+# ─── Prompt: Oh My Posh → Starship → fallback ───────────
 if (-not $script:IsAgentShell) {
-    Invoke-Expression (&starship init powershell)
+    $pwshcodeDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+    $promptInit = Join-Path $pwshcodeDir 'prompt' 'init.ps1'
+    if (Test-Path $promptInit) { . $promptInit }
 } else {
     function prompt { "PS $($ExecutionContext.SessionState.Path.CurrentLocation)> " }
-}
-
-$isAdmin = [Security.Principal.WindowsPrincipal]::new(
-    [Security.Principal.WindowsIdentity]::GetCurrent()
-).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-$ProfileDir = Split-Path -Parent $PROFILE
-
-if (-not $script:IsAgentShell) {
-    if ($isAdmin) {
-        $env:STARSHIP_CONFIG = "$ProfileDir\starship-admin.toml"
-        $host.UI.RawUI.WindowTitle = "ADMIN - $((Get-Location).Path)"
-        Write-Host "ELEVATED SHELL" -ForegroundColor Red
-    } else {
-        $env:STARSHIP_CONFIG = "$ProfileDir\starship.toml"
-    }
 }
 #endregion
 

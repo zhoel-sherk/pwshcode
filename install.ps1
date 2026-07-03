@@ -372,9 +372,18 @@ if ($allSkills.Count -eq 0) {
     $skillSelections = Show-MenuCheckbox "Выберите скиллы для opencode:" $skillOptions
 }
 
+# ─── Prompt selection ───────────────────────────────────────
+Write-Step "Выбор промипта"
+$promptChoice = Show-MenuRadio "Какой промипт установить?" @(
+    @{label = "Oh My Posh (tokyonight)"; desc = "красивый, много сегментов" }
+    @{label = "Starship (Tokyo Night)";  desc = "как у автора, лёгкий и быстрый" }
+    @{label = "None — минимальный PS>"; desc = "без промипта" }
+)
+
 # ─── Winget deps ───────────────────────────────────────────
 Write-Step "Winget-зависимости"
-$installWinget = Prompt-YesNo "Установить winget-пакеты (jq, delta, uv, just, yq, rg, fd, bat, eza, zoxide, gsudo)?" $true
+$wingetExtra = if ($promptChoice -eq 0) { ' + oh-my-posh' } elseif ($promptChoice -eq 1) { ' + starship' } else { '' }
+$installWinget = Prompt-YesNo "Установить winget-пакеты (jq, delta, uv, just, yq, rg, fd, bat, eza, zoxide, gsudo$wingetExtra)?" $true
 
 # ─── Review ────────────────────────────────────────────────
 Clear-Screen
@@ -386,6 +395,8 @@ Write-Info "Профиль:        $($profileLabels[$profileChoice])"
 $chosenSkills = @()
 for ($i = 0; $i -lt $allSkills.Count; $i++) { if ($skillSelections[$i]) { $chosenSkills += $allSkills[$i].Name } }
 Write-Info "Скиллы:         $(if ($chosenSkills.Count -gt 0) { "$($chosenSkills.Count): $($chosenSkills -join ', ')" } else { 'не выбраны' })"
+$promptLabels = @('Oh My Posh (tokyonight)', 'Starship (Tokyo Night)', 'None')
+Write-Info "Промипт:        $($promptLabels[$promptChoice])"
 Write-Info "Winget:         $(if ($installWinget) { 'да' } else { 'нет' })"
 if (-not (Prompt-YesNo "Всё верно? Начинаем установку" $true)) {
     Write-Warn "Отменено"
@@ -401,12 +412,39 @@ if ($allSkills.Count -gt 0) {
     Install-Skills -RepoRoot $repoRoot -TargetDir "$env:USERPROFILE\.config\opencode\skills" -Selection $skillSelections
 }
 
+# ─── Prompt config ─────────────────────────────────────────
+Write-Step "Установка промипта"
+$promptTarget = Join-Path $installDir 'prompt'
+if (-not (Test-Path $promptTarget)) { New-Item -ItemType Directory -Path $promptTarget -Force | Out-Null }
+Copy-Item -Path (Join-Path $repoRoot 'prompt\init.ps1') -Destination $promptTarget -Force
+
+if ($promptChoice -eq 0) {
+    # Oh My Posh
+    Copy-Item -Path (Join-Path $repoRoot 'prompt\omp-tokyonight.json') -Destination $promptTarget -Force
+    Write-OK "Oh My Posh (tokyonight)"
+} elseif ($promptChoice -eq 1) {
+    # Starship
+    Copy-Item -Path (Join-Path $repoRoot 'prompt\starship.toml') -Destination $promptTarget -Force
+    Copy-Item -Path (Join-Path $repoRoot 'prompt\starship-admin.toml') -Destination $promptTarget -Force
+    Write-OK "Starship (Tokyo Night)"
+} else {
+    Write-OK "Промипт не выбран — минимальный PS>"
+}
+
 if ($profileChoice -le 1) {
     Write-Step "Настройка `$PROFILE"
     Setup-Profile -Choice $profileChoice -ProfilePath $profilePath
 }
 
-if ($installWinget) { Install-WingetDeps -RepoRoot $repoRoot }
+if ($installWinget) {
+    Install-WingetDeps -RepoRoot $repoRoot
+    if ($promptChoice -eq 0) {
+        # Install oh-my-posh separately
+        Write-Step "Установка Oh My Posh"
+        winget install -e --id JanDeDobbeleer.OhMyPosh --accept-package-agreements --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-OK "oh-my-posh установлен" } else { Write-Warn "oh-my-posh: exit $LASTEXITCODE (возможно уже есть)" }
+    }
+}
 
 # ─── Cleanup web temp ──────────────────────────────────────
 if ($IS_WEB) { Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue }

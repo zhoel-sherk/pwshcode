@@ -1,0 +1,33 @@
+format = """[](#ff4444)$username$directory$git_branch$git_status$python$time[ ](fg:#3a1010) """
+
+[username]
+show_always = true
+style_user = "bg:#ff4444 fg:#ffffff"
+format = "[$user]($style)[](fg:#ff4444 bg:#6b2020)"
+
+[directory]
+style = "bg:#6b2020 fg:#ff7777"
+format = "[ $path ]($style)[](fg:#6b2020 bg:#3a1010)"
+
+[git_branch]
+symbol = " "
+style = "bg:#ff7777 fg:#1a0000"
+format = "[](fg:#6b2020 bg:#ff7777)[ $symbol$branch ]($style)[](fg:#ff7777 bg:#3a1010)"
+
+[git_status]
+style = "bg:#ff7777 fg:#1a0000"
+format = "[$all_status$ahead_behind]($style)"
+
+[python]
+symbol = " "
+style = "bg:#ff8844 fg:#1a0000"
+format = '[](fg:#3a1010 bg:#ff8844)[ $symbol$version( ($virtualenv)) ]($style)[](fg:#ff8844 bg:#3a1010)'
+
+[time]
+disabled = false
+time_format = "%R"
+style = "bg:#3a1010 fg:#ff8844"
+format = "[ $time ]($style)"
+
+[character]
+disabled = true

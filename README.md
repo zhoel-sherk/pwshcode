@@ -49,6 +49,11 @@ pwshcode/
 ├── profile.ps1                    # PowerShell 7 профиль
 ├── Install-WingetRequirements.ps1 # Установка winget-пакетов
 ├── requirements-winget.txt        # Список winget-зависимостей
+├── prompt/                        # Конфиги промипта
+│   ├── init.ps1                   # Загрузчик: OMP → Starship → fallback
+│   ├── starship.toml              # Starship: Tokyo Night
+│   ├── starship-admin.toml        # Starship: Admin-тема (красная)
+│   └── omp-tokyonight.json        # Oh My Posh: Tokyo Night Storm
 ├── skills/
 │   ├── python-env-manager/SKILL.md
 │   ├── pwsh-profile/SKILL.md

@@ -21,3 +21,6 @@ MikeFarah.yq
 # [core] — navigation, elevation
 ajeetdsouza.zoxide
 gerardog.gsudo
+
+# [prompt] — oh-my-posh (added by installer when selected)
+# JanDeDobbeleer.OhMyPosh
