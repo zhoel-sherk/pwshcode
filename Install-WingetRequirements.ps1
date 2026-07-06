@@ -53,16 +53,27 @@ foreach ($id in $ids) {
     }
 
     Write-Host "install $id ..." -ForegroundColor Yellow
-    winget install -e --id $id `
-        --accept-package-agreements `
-        --accept-source-agreements `
-        --disable-interactivity
+    $retries = 3
+    $ok = $false
+    for ($r = 1; $r -le $retries; $r++) {
+        if ($r -gt 1) {
+            $wait = 5
+            Write-Host "   retry $r/$retries after ${wait}s..." -ForegroundColor DarkYellow
+            Start-Sleep -Seconds $wait
+        }
+        winget install -e --id $id `
+            --accept-package-agreements `
+            --accept-source-agreements `
+            --disable-interactivity 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+        Write-Host "   exit $LASTEXITCODE" -ForegroundColor DarkRed
+    }
 
-    if ($LASTEXITCODE -eq 0) {
+    if ($ok) {
         Write-Host "ok    $id" -ForegroundColor Green
         $installed++
     } else {
-        Write-Host "fail  $id (exit $LASTEXITCODE)" -ForegroundColor Red
+        Write-Host "fail  $id" -ForegroundColor Red
         $failed++
     }
 }

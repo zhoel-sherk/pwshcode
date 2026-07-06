@@ -1,5 +1,6 @@
 #!/usr/bin/env pwsh
 #Requires -Version 7.0
+param([switch]$WhatIf)
 <#
 .SYNOPSIS
     pwshcode installer — interactive TUI для установки профиля PowerShell 7
@@ -111,7 +112,7 @@ function Read-String($Prompt, $Default) {
 }
 
 function Show-ProgressBar($Percent, $Label = "") {
-    static $lastLen = 0
+    if (-not $script:pbLastLen) { $script:pbLastLen = 0 }
     $w = [Math]::Floor([Console]::WindowWidth * 0.35)
     $filled = [Math]::Floor($w * $Percent / 100)
     $empty = $w - $filled
@@ -307,8 +308,43 @@ function Setup-Profile($Choice, $ProfilePath) {
 
 function Install-WingetDeps($RepoRoot) {
     $script = Join-Path $RepoRoot 'Install-WingetRequirements.ps1'
-    if (Test-Path $script) { Write-Step "Winget-зависимости"; & $script }
-    else { Write-Fail "Install-WingetRequirements.ps1 не найден" }
+    if (Test-Path $script) { Write-Step "Winget-зависимости"; & $script @args }
+    else {     Write-Fail "Install-WingetRequirements.ps1 не найден" }
+}
+
+function Install-ContextCompressor($RepoRoot, $Choice, $Threshold) {
+    if ($Choice -eq 2) { Write-Warn "Компрессор отключён"; return }
+
+    # ─── Plugin ────────────────────────────────────────────────
+    $pluginDir = "$env:USERPROFILE\.config\opencode\plugins"
+    $pluginSrc = Join-Path $RepoRoot 'plugins' 'context-compressor.ts'
+    if (Test-Path $pluginSrc) {
+        if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Path $pluginDir -Force | Out-Null }
+        Copy-Item -Path $pluginSrc -Destination (Join-Path $pluginDir 'context-compressor.ts') -Force
+        Write-OK "Plugin → $pluginDir\context-compressor.ts"
+    } else {
+        Write-Warn "plugins/context-compressor.ts не найден"
+    }
+
+    # ─── Skill ─────────────────────────────────────────────────
+    $skillSrc = Join-Path $RepoRoot 'skills' 'context-compressor'
+    $skillDir = "$env:USERPROFILE\.config\opencode\skills\context-compressor"
+    if (Test-Path $skillSrc) {
+        if (-not (Test-Path $skillDir)) { New-Item -ItemType Directory -Path $skillDir -Force | Out-Null }
+        Copy-Item -Path (Join-Path $skillSrc 'SKILL.md') -Destination (Join-Path $skillDir 'SKILL.md') -Force
+        Write-OK "Skill → $skillDir\SKILL.md"
+    } else {
+        Write-Warn "skills/context-compressor/ не найден"
+    }
+
+    # ─── Threshold ─────────────────────────────────────────────
+    if ($Choice -eq 0) {
+        $env:CONTEXT_COMPRESSOR_THRESHOLD = "$Threshold"
+        Write-OK "Порог сжатия: $Threshold токенов"
+    }
+
+    if ($Choice -eq 0) { Write-OK "Режим: Auto (plugin + skill)" }
+    else { Write-OK "Режим: Manual (skill only)" }
 }
 #endregion
 
@@ -336,7 +372,9 @@ if ($IS_WEB) {
         }
         Remove-Item -Recurse -Force "$installDir\*" -ErrorAction SilentlyContinue
     } else { New-Item -ItemType Directory -Path $installDir -Force | Out-Null }
-    Get-ChildItem -LiteralPath $repoRoot -Exclude '.git' | Copy-Item -Destination $installDir -Recurse -Force
+    if ((Resolve-Path $repoRoot).Path -ne (Resolve-Path $installDir).Path) {
+        Get-ChildItem -LiteralPath $repoRoot -Exclude '.git' | Copy-Item -Destination $installDir -Recurse -Force
+    }
     $repoRoot = $installDir
     Write-OK "Скопировано в $installDir"
 }
@@ -372,6 +410,28 @@ if ($allSkills.Count -eq 0) {
     $skillSelections = Show-MenuCheckbox "Выберите скиллы для opencode:" $skillOptions
 }
 
+# ─── Context compressor selection ────────────────────────────
+Write-Step "Контекстный компрессор (PAKT)"
+$compressorHelp = @"
+   PAKT — сжатие JSON/YAML/CSV/.md в pipe-формат.
+   Экономия токенов до 50% на структурированных данных.
+   Подробнее: skills/context-compressor/SKILL.md
+"@
+Write-Muted $compressorHelp
+
+$compressorChoice = Show-MenuRadio "Режим работы:" @(
+    @{label = "Auto — plugin + skill"; desc = "автоматическое сжатие tool output'ов" }
+    @{label = "Manual — только skill"; desc = "модель сама решает когда сжимать" }
+    @{label = "Отключить" }
+)
+
+$compressThreshold = 200
+if ($compressorChoice -le 1) {
+    $thresholdInput = Read-String "Порог сжатия в токенах (ниже — не сжимать)" "200"
+    if ($thresholdInput -match '^\d+$') { $compressThreshold = [int]$thresholdInput }
+}
+Write-Host ""
+
 # ─── Prompt selection ───────────────────────────────────────
 Write-Step "Выбор промипта"
 $promptChoice = Show-MenuRadio "Какой промипт установить?" @(
@@ -396,6 +456,9 @@ $chosenSkills = @()
 for ($i = 0; $i -lt $allSkills.Count; $i++) { if ($skillSelections[$i]) { $chosenSkills += $allSkills[$i].Name } }
 Write-Info "Скиллы:         $(if ($chosenSkills.Count -gt 0) { "$($chosenSkills.Count): $($chosenSkills -join ', ')" } else { 'не выбраны' })"
 $promptLabels = @('Oh My Posh (tokyonight)', 'Starship (Tokyo Night)', 'None')
+$compressorLabels = @('Auto (plugin + skill)', "Manual (skill only)", 'отключён')
+$compressorDetail = if ($compressorChoice -le 1) { " [$compressThreshold токенов]" } else { "" }
+Write-Info "Компрессор:     $($compressorLabels[$compressorChoice])$compressorDetail"
 Write-Info "Промипт:        $($promptLabels[$promptChoice])"
 Write-Info "Winget:         $(if ($installWinget) { 'да' } else { 'нет' })"
 if (-not (Prompt-YesNo "Всё верно? Начинаем установку" $true)) {
@@ -411,6 +474,10 @@ if ($allSkills.Count -gt 0) {
     Write-Step "Установка opencode skills"
     Install-Skills -RepoRoot $repoRoot -TargetDir "$env:USERPROFILE\.config\opencode\skills" -Selection $skillSelections
 }
+
+# ─── Context compressor ────────────────────────────────────
+Write-Step "Установка контекстного компрессора"
+Install-ContextCompressor -RepoRoot $repoRoot -Choice $compressorChoice -Threshold $compressThreshold
 
 # ─── Prompt config ─────────────────────────────────────────
 Write-Step "Установка промипта"
@@ -437,7 +504,7 @@ if ($profileChoice -le 1) {
 }
 
 if ($installWinget) {
-    Install-WingetDeps -RepoRoot $repoRoot
+    Install-WingetDeps -RepoRoot $repoRoot -WhatIf:$WhatIf
     if ($promptChoice -eq 0) {
         # Install oh-my-posh separately
         Write-Step "Установка Oh My Posh"
@@ -468,6 +535,10 @@ if ($profileChoice -eq 2) {
 if ($chosenSkills.Count -gt 0) {
     Write-Info "3. Скиллы готовы к использованию:"
     foreach ($s in $chosenSkills) { Write-Muted "     • $s" }
+}
+if ($compressorChoice -le 1) {
+    Write-Info "4. Context Compressor $($compressorLabels[$compressorChoice]) — порог $compressThreshold токенов"
+    Write-Muted "     Перезапустите opencode для активации"
 }
 Write-Host ""
 

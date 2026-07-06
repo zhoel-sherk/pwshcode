@@ -4,7 +4,9 @@
     Sourced by profile.ps1. Configs are auto-detected from sibling directory.
 #>
 
-$script:PromptDir = Split-Path -LiteralPath $MyInvocation.MyCommand.Path -Parent
+if ($script:PwshCodePromptInit) { return }
+$script:PwshCodePromptInit = $true
+$script:PromptDir = $PSScriptRoot
 $script:IsAdmin = [Security.Principal.WindowsPrincipal]::new(
     [Security.Principal.WindowsIdentity]::GetCurrent()
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)

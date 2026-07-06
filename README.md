@@ -63,8 +63,9 @@ cd $env:USERPROFILE\pwshcode
 - ✅ Проверка окружения (pwsh 7, winget, git, opencode)
 - 📁 Выбор директории установки
 - 👤 **Три режима `$PROFILE`**: добавить / заменить (с бэкапом) / позже
+- 📦 **Выбор скиллов**: 7 штук, все включены по умолч.
+- 🧠 **Context Compressor (PAKT)**: Auto / Manual / Off + настраиваемый порог сжатия
 - 🎨 **Выбор промипта**: Oh My Posh / Starship / None
-- 📦 **Выбор скиллов**: 6 штук, все включены по умолч.
 - 🔧 **Winget-зависимости**: jq, delta, uv, just, yq, rg, fd, zoxide, gsudo
 
 </td>
@@ -115,6 +116,7 @@ cd $env:USERPROFILE\pwshcode
 | `git-conventions` | git, commit, branch, PR, gh, conventional commit | Conventional commits, branch naming, `gh pr create` |
 | `just-recipes` | just, justfile, recipe | Justfile: format, lint, test, build, clean |
 | `project-scaffold` | scaffold, template, init, boilerplate, new project | pyproject.toml, package.json, tsconfig.json, .gitignore |
+| `context-compressor` | pakt, compress, decompress, @dict, @from, pipe-format | PAKT-сжатие JSON/YAML/CSV/MD, inline plugin (zero deps), decompress tool, до -50% токенов |
 
 ---
 
@@ -133,14 +135,17 @@ pwshcode/
 │   ├── starship-admin.toml          # Starship: Admin (красная тема)
 │   └── omp-tokyonight.json          # Oh My Posh: Tokyo Night Storm
 │
-├── skills/                          # 🧠 opencode skills (6 шт)
+├── plugins/                         # 🔌 opencode plugin (context-compressor)
+│   └── context-compressor.ts        #    inline PAKT, zero deps
+├── skills/                          # 🧠 opencode skills (7 шт)
 │   ├── python-env-manager/SKILL.md
 │   ├── pwsh-profile/SKILL.md
 │   ├── pwsh-profile/reference.md
 │   ├── pwsh-idioms/SKILL.md
 │   ├── git-conventions/SKILL.md
 │   ├── just-recipes/SKILL.md
-│   └── project-scaffold/SKILL.md
+│   ├── project-scaffold/SKILL.md
+│   └── context-compressor/SKILL.md
 │
 ├── .gitignore
 └── README.md
@@ -177,5 +182,7 @@ MIT © 2026 [zhoel-sherk](https://github.com/zhoel-sherk)
 [![GitHub forks](https://img.shields.io/github/forks/zhoel-sherk/pwshcode?style=social)](https://github.com/zhoel-sherk/pwshcode)
 
 **Сделано с ❤️ для AI-агентов на Windows**
+
+**PAKT (Pipe-Aligned Kompact Text)** — оригинальная концепция: [github.com/sriinnu/clipforge-PAKT](https://github.com/sriinnu/clipforge-PAKT)
 
 </div>
