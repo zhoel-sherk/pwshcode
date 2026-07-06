@@ -67,7 +67,8 @@ interface CompressResult {
 
 function compressJson(input: string, raw: string): CompressResult {
   const parsed = JSON.parse(input)
-  const items = Array.isArray(parsed) ? parsed : [parsed]
+  const items = (Array.isArray(parsed) ? parsed : [parsed])
+    .filter(item => item !== null && item !== undefined && typeof item === "object")
   if (items.length === 0) return { compressed: raw, original: raw, format: "json", saved: 0 }
 
   const keys = [...new Set(items.flatMap(Object.keys))]
@@ -263,6 +264,7 @@ export default (async () => {
     },
 
     "experimental.chat.messages.transform": async (messages: Array<Record<string, unknown>>) => {
+      if (!Array.isArray(messages)) return messages;
       for (const msg of messages) {
         if (msg.role !== "tool") continue
         const content = String(msg.content ?? "")
