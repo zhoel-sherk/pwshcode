@@ -89,15 +89,49 @@ function Write-OK      { param($Msg) Write-Host "   $($C.Green)✔$($C.Reset) $M
 function Write-Fail    { param($Msg) Write-Host "   $($C.Red)✘$($C.Reset) $Msg" }
 function Write-Info    { param($Msg) Write-Host "   $($C.Blue)ℹ$($C.Reset) $Msg" }
 function Write-Warn    { param($Msg) Write-Host "   $($C.Yellow)⚠$($C.Reset) $Msg" }
-function Clear-Screen  { [Console]::Clear() }
-function Show-Cursor   { [Console]::CursorVisible = $true }
-function Hide-Cursor   { [Console]::CursorVisible = $false }
+function Clear-Screen  { try { [Console]::Clear() } catch {} }
+function Show-Cursor   { try { [Console]::CursorVisible = $true } catch {} }
+function Hide-Cursor   { try { [Console]::CursorVisible = $false } catch {} }
+function Invoke-SafeReadKey {
+    try { return [Console]::ReadKey($true) }
+    catch { return @{ Key = 'Enter'; KeyChar = "`r" } }
+}
+function Set-SafeCursorPosition($Left, $Top) {
+    try {
+        $maxTop = [Math]::Max(0, [Console]::BufferHeight - 1)
+        $maxLeft = [Math]::Max(0, [Console]::BufferWidth - 1)
+        [Console]::SetCursorPosition([Math]::Min($Left, $maxLeft), [Math]::Min($Top, $maxTop))
+    } catch {}
+}
+function Get-SafeWindowWidth {
+    try { return [Console]::WindowWidth } catch { return 80 }
+}
+function Get-SafeCursorTop {
+    try { return [Console]::CursorTop } catch { return 0 }
+}
+function Get-SafeCursorLeft {
+    try { return [Console]::CursorLeft } catch { return 0 }
+}
+function Copy-SafeItem($Path, $Destination) {
+    $src = Resolve-Path $Path -ErrorAction SilentlyContinue
+    if (-not $src) { return }
+    $dst = Resolve-Path $Destination -ErrorAction SilentlyContinue
+    if ($dst) {
+        if ($src.Path -eq $dst.Path) { return }
+        if ((Get-Item $dst).PSIsContainer) {
+            $target = Join-Path $dst.Path (Split-Path $Path -Leaf)
+            $tgtResolved = Resolve-Path $target -ErrorAction SilentlyContinue
+            if ($tgtResolved -and ($src.Path -eq $tgtResolved.Path)) { return }
+        }
+    }
+    Copy-Item -Path $Path -Destination $Destination -Force -ErrorAction SilentlyContinue
+}
 
 function Prompt-YesNo($Question, $Default = $true) {
     $def = if ($Default) { "Y/n" } else { "y/N" }
     while ($true) {
         Write-Host "   $($C.Bold)$Question [$($C.Cyan)$def$($C.Reset)$($C.Bold)]$($C.Reset) " -NoNewline
-        $k = [Console]::ReadKey($true)
+        $k = Invoke-SafeReadKey
         if ($k.Key -eq 'Enter')  { return $Default }
         if ($k.KeyChar -in 'y','Y') { return $true }
         if ($k.KeyChar -in 'n','N') { return $false }
@@ -113,14 +147,14 @@ function Read-String($Prompt, $Default) {
 
 function Show-ProgressBar($Percent, $Label = "") {
     if (-not $script:pbLastLen) { $script:pbLastLen = 0 }
-    $w = [Math]::Floor([Console]::WindowWidth * 0.35)
+    $w = [Math]::Floor((Get-SafeWindowWidth) * 0.35)
     $filled = [Math]::Floor($w * $Percent / 100)
     $empty = $w - $filled
     $bar = "$($C.Green)$('#' * $filled)$($C.Grey)$('-' * $empty)$($C.Reset)"
     $pct = "$($C.Cyan)$([Math]::Floor($Percent))%$($C.Reset)"
     $line = "   $bar $pct $Label"
     Write-Host "`r$line" -NoNewline
-    $script:lastLen = $line.Length
+    $script:pbLastLen = $line.Length
 }
 #endregion
 
@@ -185,7 +219,7 @@ function Test-Prerequisites {
     if (-not $ok) {
         Write-Fail "Окружение не готово. Исправьте ошибки и запустите снова."
         Write-Host "`n   Нажмите любую клавишу для выхода..."
-        $null = [Console]::ReadKey($true)
+$null = Invoke-SafeReadKey
         exit 1
     }
 }
@@ -196,19 +230,19 @@ function Show-MenuRadio($Title, $Options, $DefaultIndex = 0) {
     $sel = $DefaultIndex
     $opts = @($Options)
     Write-Host "`n   $($C.Bold)$Title$($C.Reset)"
-    $top = [Console]::CursorTop
+    $top = Get-SafeCursorTop
     Hide-Cursor
     try {
         while ($true) {
             for ($i = 0; $i -lt $opts.Count; $i++) {
-                [Console]::SetCursorPosition(3, $top + $i)
+                Set-SafeCursorPosition 3 ($top + $i)
                 $mark = if ($i -eq $sel) { "$($C.Cyan)◉$($C.Reset)" } else { "$($C.Grey)○$($C.Reset)" }
                 $label = if ($opts[$i] -is [hashtable]) { $opts[$i].label } else { $opts[$i] }
                 $suffix = if ($i -eq $sel) { "$($C.Reverse)$label$($C.Reset)" } else { "$($C.Grey)$label$($C.Reset)" }
                 Write-Host "$mark $suffix" -NoNewline
-                Write-Host (' ' * [Math]::Max(0, [Console]::WindowWidth - [Console]::CursorLeft))
+                Write-Host (' ' * [Math]::Max(0, (Get-SafeWindowWidth) - (Get-SafeCursorLeft)))
             }
-            $key = [Console]::ReadKey($true)
+            $key = Invoke-SafeReadKey
             if ($key.Key -eq 'UpArrow' -and $sel -gt 0) { $sel-- }
             elseif ($key.Key -eq 'DownArrow' -and $sel -lt $opts.Count - 1) { $sel++ }
             elseif ($key.Key -eq 'Enter') { break }
@@ -224,13 +258,13 @@ function Show-MenuCheckbox($Title, $Options) {
     $opts = @($Options)
     Write-Host "`n   $($C.Bold)$Title$($C.Reset)"
     Write-Muted "   (↑↓ навигация, Space — переключить, Enter — OK)"
-    $top = [Console]::CursorTop + 1
+    $top = (Get-SafeCursorTop) + 1
     Hide-Cursor
     try {
         while ($true) {
-            [Console]::SetCursorPosition(0, $top)
+            Set-SafeCursorPosition 0 $top
             for ($i = 0; $i -lt $opts.Count; $i++) {
-                [Console]::SetCursorPosition(3, $top + $i)
+                Set-SafeCursorPosition 3 ($top + $i)
                 $box = if ($states[$i]) { "$($C.Green)☑$($C.Reset)" } else { "$($C.Grey)☐$($C.Reset)" }
                 if ($opts[$i] -is [hashtable]) {
                     $label = $opts[$i].label
@@ -238,9 +272,9 @@ function Show-MenuCheckbox($Title, $Options) {
                 } else { $label = $opts[$i]; $desc = "" }
                 $suffix = if ($i -eq $idx) { "$($C.Reverse)$label$($C.Reset)$desc" } else { "$label$desc" }
                 Write-Host "$box $suffix" -NoNewline
-                Write-Host (' ' * [Math]::Max(0, [Console]::WindowWidth - [Console]::CursorLeft))
+                Write-Host (' ' * [Math]::Max(0, (Get-SafeWindowWidth) - (Get-SafeCursorLeft)))
             }
-            $key = [Console]::ReadKey($true)
+            $key = Invoke-SafeReadKey
             if ($key.Key -eq 'UpArrow' -and $idx -gt 0) { $idx-- }
             elseif ($key.Key -eq 'DownArrow' -and $idx -lt $opts.Count - 1) { $idx++ }
             elseif ($key.Key -eq 'Spacebar') { $states[$idx] = -not $states[$idx] }
@@ -259,7 +293,7 @@ function Install-ProfileFiles($RepoRoot, $TargetDir) {
     for ($i = 0; $i -lt $files.Count; $i++) {
         $src = Join-Path $RepoRoot $files[$i]
         $dst = Join-Path $TargetDir $files[$i]
-        if (Test-Path $src) { Copy-Item -Path $src -Destination $dst -Force }
+        if (Test-Path $src) { Copy-SafeItem -Path $src -Destination $dst }
         Show-ProgressBar ([Math]::Floor(($i + 1) / $files.Count * 100)) $files[$i]
     }
     Write-Host ""
@@ -306,9 +340,10 @@ function Setup-Profile($Choice, $ProfilePath) {
     }
 }
 
-function Install-WingetDeps($RepoRoot) {
+function Install-WingetDeps {
+    param($RepoRoot, [switch]$WhatIf)
     $script = Join-Path $RepoRoot 'Install-WingetRequirements.ps1'
-    if (Test-Path $script) { Write-Step "Winget-зависимости"; & $script @args }
+    if (Test-Path $script) { Write-Step "Winget-зависимости"; & $script -WhatIf:$WhatIf }
     else {     Write-Fail "Install-WingetRequirements.ps1 не найден" }
 }
 
@@ -483,16 +518,16 @@ Install-ContextCompressor -RepoRoot $repoRoot -Choice $compressorChoice -Thresho
 Write-Step "Установка промипта"
 $promptTarget = Join-Path $installDir 'prompt'
 if (-not (Test-Path $promptTarget)) { New-Item -ItemType Directory -Path $promptTarget -Force | Out-Null }
-Copy-Item -Path (Join-Path $repoRoot 'prompt\init.ps1') -Destination $promptTarget -Force
+Copy-SafeItem -Path (Join-Path $repoRoot 'prompt\init.ps1') -Destination $promptTarget
 
 if ($promptChoice -eq 0) {
     # Oh My Posh
-    Copy-Item -Path (Join-Path $repoRoot 'prompt\omp-tokyonight.json') -Destination $promptTarget -Force
+    Copy-SafeItem -Path (Join-Path $repoRoot 'prompt\omp-tokyonight.json') -Destination $promptTarget
     Write-OK "Oh My Posh (tokyonight)"
 } elseif ($promptChoice -eq 1) {
     # Starship
-    Copy-Item -Path (Join-Path $repoRoot 'prompt\starship.toml') -Destination $promptTarget -Force
-    Copy-Item -Path (Join-Path $repoRoot 'prompt\starship-admin.toml') -Destination $promptTarget -Force
+    Copy-SafeItem -Path (Join-Path $repoRoot 'prompt\starship.toml') -Destination $promptTarget
+    Copy-SafeItem -Path (Join-Path $repoRoot 'prompt\starship-admin.toml') -Destination $promptTarget
     Write-OK "Starship (Tokyo Night)"
 } else {
     Write-OK "Промипт не выбран — минимальный PS>"
@@ -549,5 +584,5 @@ if ($IS_WEB) {
 }
 
 Write-Host "   Нажмите любую клавишу для выхода..."
-$null = [Console]::ReadKey($true)
+$null = Invoke-SafeReadKey
 #endregion
