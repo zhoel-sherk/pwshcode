@@ -98,9 +98,9 @@ function Invoke-SafeReadKey {
 }
 function Set-SafeCursorPosition($Left, $Top) {
     try {
-        $maxTop = [Math]::Max(0, [Console]::BufferHeight - 1)
-        $maxLeft = [Math]::Max(0, [Console]::BufferWidth - 1)
-        [Console]::SetCursorPosition([Math]::Min($Left, $maxLeft), [Math]::Min($Top, $maxTop))
+        $bh = try { [Console]::BufferHeight } catch { 9999 }
+        $bw = try { [Console]::BufferWidth } catch { 120 }
+        [Console]::SetCursorPosition([Math]::Min($Left, $bw - 1), [Math]::Min($Top, $bh - 1))
     } catch {}
 }
 function Get-SafeWindowWidth {
@@ -556,7 +556,7 @@ Clear-Screen
 Write-Host $BANNER
 Write-Host ""
 Write-Host "   $($C.Bold)$($C.Green)╔══════════════════════════════════╗$($C.Reset)"
-Write-Host "   $($C.Bold)$($C.Green)║     Установка завершена! 🎉       ║$($C.Reset)"
+Write-Host "   $($C.Bold)$($C.Green)║     Установка завершена! 🎉      ║$($C.Reset)"
 Write-Host "   $($C.Bold)$($C.Green)╚══════════════════════════════════╝$($C.Reset)"
 Write-Host ""
 
