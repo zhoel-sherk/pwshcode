@@ -13,6 +13,24 @@ param([switch]$WhatIf)
     Shows menus: skill selection, $PROFILE setup, winget dependencies installation.
 #>
 
+#region ─── Pre-check: pwsh version ────────────────────────────
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host "`n ⚠ $($L.pwshTooOld -f $PSVersionTable.PSVersion.ToString())" -ForegroundColor Yellow
+    if (Prompt-YesNo $L.offerPwsh7) {
+        Write-Info $L.installingPwsh7
+        if (-not $WhatIf) {
+            winget install --id Microsoft.PowerShell --silent --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-OK $L.pwsh7Installed
+                $args = if ($WhatIf) { @('-WhatIf') } else { @() }
+                pwsh -NoProfile -File "$PSCommandPath" @args
+                exit 0
+            } else { Write-Warn ($L.pwsh7Failed -f $LASTEXITCODE); exit 1 }
+        }
+    } else { exit 1 }
+}
+#endregion
+
 #region ─── Bootstrap: web vs local ─────────────────────────
 $IS_WEB = [string]::IsNullOrEmpty($PSScriptRoot) -or $MyInvocation.MyCommand.Path -like '*Invoke-Expression*'
 $REPO_URL = 'https://github.com/zhoel-sherk/pwshcode.git'
@@ -294,6 +312,30 @@ $RU = @{
   localMode = "режим: local"
   webOverwrite = "Директория {0} уже существует. Перезаписать?"
   webCopying = "Копирование в {0}"
+
+  # ─── Auto-install prompts ───────────────────────────────────
+  pwshTooOld = "PowerShell 7+ required (current: {0}). Установить PowerShell 7?"
+  installingPwsh7 = "Устанавливаю PowerShell 7..."
+  pwsh7Installed = "PowerShell 7 установлен. Перезапускаю..."
+  pwsh7Failed = "PowerShell 7 не установлен: {0}"
+  offerWinget = "winget не найден. Установить?"
+  installingWinget = "Устанавливаю winget..."
+  wingetInstalled = "winget установлен"
+  wingetFailed = "winget не установлен: {0}"
+  offerOpencode = "opencode не найден. Установить?"
+  installingOpencode = "Устанавливаю opencode..."
+  opencodeInstalled = "opencode установлен"
+  opencodeFailed = "opencode не установлен: exit {0}"
+  offerGit = "git не найден. Установить через winget?"
+  installingGit = "Устанавливаю git..."
+  gitInstalled = "git установлен"
+  gitFailed = "git не установлен: exit {0}"
+  offerTerminal = "Установить Windows Terminal?"
+  installingTerminal = "Устанавливаю Windows Terminal..."
+  terminalInstalled = "Windows Terminal установлен"
+  terminalFailed = "Windows Terminal не установлен: exit {0}"
+  installNow = "Установить"
+  skipInstall = "Пропустить"
 }
 $EN = @{
   langName = "English"
@@ -426,8 +468,34 @@ $EN = @{
   localMode = "mode: local"
   webOverwrite = "Directory {0} already exists. Overwrite?"
   webCopying = "Copying to {0}"
+
+  # ─── Auto-install prompts ───────────────────────────────────
+  pwshTooOld = "PowerShell 7+ required (current: {0}). Install PowerShell 7?"
+  installingPwsh7 = "Installing PowerShell 7..."
+  pwsh7Installed = "PowerShell 7 installed. Restarting..."
+  pwsh7Failed = "PowerShell 7 not installed: {0}"
+  offerWinget = "winget not found. Install it?"
+  installingWinget = "Installing winget..."
+  wingetInstalled = "winget installed"
+  wingetFailed = "winget not installed: {0}"
+  offerOpencode = "opencode not found. Install it?"
+  installingOpencode = "Installing opencode..."
+  opencodeInstalled = "opencode installed"
+  opencodeFailed = "opencode not installed: exit {0}"
+  offerGit = "git not found. Install via winget?"
+  installingGit = "Installing git..."
+  gitInstalled = "git installed"
+  gitFailed = "git not installed: exit {0}"
+  offerTerminal = "Install Windows Terminal?"
+  installingTerminal = "Installing Windows Terminal..."
+  terminalInstalled = "Windows Terminal installed"
+  terminalFailed = "Windows Terminal not installed: exit {0}"
+  installNow = "Install"
+  skipInstall = "Skip"
 }
 #endregion
+
+$L = $RU
 
 #region ─── Banner ───────────────────────────────────────────
 $BANNER = @"
@@ -446,28 +514,42 @@ $($C.Dim)  https://github.com/zhoel-sherk/pwshcode$($C.Reset)
 #endregion
 
 #region ─── Prerequisites ────────────────────────────────────
+function Install-Tool($Question, $WingetId, $InstallingMsg, $SuccessMsg, $FailMsg) {
+    if (-not (Prompt-YesNo $Question $true)) { return $false }
+    Write-Info $InstallingMsg
+    if (-not $WhatIf) {
+        winget install --id $WingetId --silent --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-OK $SuccessMsg; return $true }
+        else { Write-Warn ($FailMsg -f $LASTEXITCODE); return $false }
+    } else {
+        Write-Muted "  [WhatIf] winget install --id $WingetId"
+        return $false
+    }
+}
+
 function Test-Prerequisites {
     $ok = $true
     Write-Step $L.checkEnv
 
-    if ($PSVersionTable.PSVersion.Major -ge 7) {
-        Write-OK ($L.pwshVer -f $PSVersionTable.PSVersion.ToString())
-    } else {
-        Write-Fail "PowerShell 7+ required"
-        $ok = $false
-    }
+    Write-OK ($L.pwshVer -f $PSVersionTable.PSVersion.ToString())
 
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         Write-OK $L.winget
     } else {
-        Write-Fail $L.wingetNotFound
-        $ok = $false
+        $installed = Install-Tool $L.offerWinget 'Microsoft.DesktopAppInstaller' $L.installingWinget $L.wingetInstalled $L.wingetFailed
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue) -and -not $installed) {
+            Write-Fail $L.wingetNotFound
+            $ok = $false
+        }
     }
 
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-OK ($L.git -f "$((git --version 2>$null) -replace 'git version ')")
     } else {
-        Write-Warn $L.gitWarn
+        $installed = Install-Tool $L.offerGit 'Git.Git' $L.installingGit $L.gitInstalled $L.gitFailed
+        if (Get-Command git -ErrorAction SilentlyContinue) {
+            Write-OK ($L.git -f "$((git --version 2>$null) -replace 'git version ')")
+        } else { Write-Warn $L.gitWarn }
     }
 
     $oc = if ($env:OPENCODE_PATH) { $env:OPENCODE_PATH } else {
@@ -476,7 +558,8 @@ function Test-Prerequisites {
     if ($oc) {
         Write-OK ($L.opencode -f $oc)
     } else {
-        Write-Warn $L.opencodeWarn
+        $installed = Install-Tool $L.offerOpencode 'SST.opencode' $L.installingOpencode $L.opencodeInstalled $L.opencodeFailed
+        if (-not $installed) { Write-Warn $L.opencodeWarn }
     }
 
     try {
@@ -485,6 +568,11 @@ function Test-Prerequisites {
     } catch {
         Write-Fail $L.noGithub
         $ok = $false
+    }
+
+    # Windows Terminal — always optional
+    if (-not (Get-Command wt.exe -ErrorAction SilentlyContinue)) {
+        $null = Install-Tool $L.offerTerminal 'Microsoft.WindowsTerminal' $L.installingTerminal $L.terminalInstalled $L.terminalFailed
     }
 
     if (-not $ok) {

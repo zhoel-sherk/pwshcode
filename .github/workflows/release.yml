@@ -1,0 +1,36 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PS2EXE
+        shell: pwsh
+        run: Install-Module ps2exe -Force -Scope CurrentUser
+
+      - name: Build install.exe
+        shell: pwsh
+        run: |
+          ps2exe install.ps1 install.exe `
+            -title "pwshcode Installer" `
+            -description "PowerShell 7 + opencode skills installer for Windows" `
+            -product "pwshcode" `
+            -copyright "MIT" `
+            -noConsole
+
+      - name: Create release archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path install.exe,profile.ps1,prompt/,skills/,plugins/ -DestinationPath "pwshcode-$env:GITHUB_REF_NAME.zip" -Force
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            install.exe
+            pwshcode-*.zip
