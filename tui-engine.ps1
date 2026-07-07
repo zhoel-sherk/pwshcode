@@ -1,4 +1,4 @@
-# tui-engine.ps1 — Double-buffered TUI render engine for pwshcode installer
+﻿# tui-engine.ps1 — Double-buffered TUI render engine for pwshcode installer
 # Dot-source: . .\tui-engine.ps1
 #
 # Drawing and fallback techniques inspired by PSYamlTUI
