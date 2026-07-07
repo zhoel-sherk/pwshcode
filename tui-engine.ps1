@@ -78,7 +78,7 @@ function Strip-ANSI {
 # ─── Frame control ──────────────────────────────────────────────
 
 function New-TuiFrame {
-    $script:TuiBuf = [System.Text.StringBuilder]::new()
+    $script:TuiBuf = New-Object System.Text.StringBuilder
     if (-not $script:TuiScreenCleared -and $script:TuiAnsiSupported) {
         $null = $script:TuiBuf.Append("${script:TuiEsc}[3J${script:TuiEsc}[H")
         $script:TuiScreenCleared = $true
@@ -238,7 +238,7 @@ function Show-TuiMenuRadio {
     $boxColor = $TuiC.FgBlue
 
     $labels = $opts | ForEach-Object { if ($_ -is [hashtable]) { $_.label } else { $_ } }
-    $maxLabel = ($labels | Measure-Object -Maximum Length).Maximum
+    $maxObj = $labels | Measure-Object -Property Length -Maximum; $maxLabel = if ($maxObj) { $maxObj.Maximum } else { 0 }
     $maxLabel = [Math]::Max($maxLabel, $Title.Length)
     $boxW = $maxLabel + 8
 
@@ -336,7 +336,7 @@ function Show-TuiMenuCheckbox {
     $boxColor = $TuiC.FgBlue
 
     $labels = $opts | ForEach-Object { if ($_ -is [hashtable]) { $_.label } else { $_ } }
-    $maxLabel = ($labels | Measure-Object -Maximum Length).Maximum
+    $maxObj = $labels | Measure-Object -Property Length -Maximum; $maxLabel = if ($maxObj) { $maxObj.Maximum } else { 0 }
     $maxLabel = [Math]::Max($maxLabel, $Title.Length)
     $boxW = $maxLabel + 18
 

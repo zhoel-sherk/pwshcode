@@ -1,5 +1,4 @@
 #!/usr/bin/env pwsh
-#Requires -Version 7.0
 param([switch]$WhatIf)
 <#
 .SYNOPSIS
@@ -14,20 +13,33 @@ param([switch]$WhatIf)
 #>
 
 #region ─── Pre-check: pwsh version ────────────────────────────
-if ($PSVersionTable.PSVersion.Major -lt 7) {
-    Write-Host "`n ⚠ $($L.pwshTooOld -f $PSVersionTable.PSVersion.ToString())" -ForegroundColor Yellow
-    if (Prompt-YesNo $L.offerPwsh7) {
-        Write-Info $L.installingPwsh7
+$script:PwshMajor = $PSVersionTable.PSVersion.Major
+if ($script:PwshMajor -lt 7) {
+    $verStr = $PSVersionTable.PSVersion.ToString()
+    Write-Host ""
+    Write-Host " ⚠ PowerShell $verStr detected. pwshcode installer works best on PowerShell 7+." -ForegroundColor Yellow
+    Write-Host "    Current: $verStr  |  Recommended: 7.4+" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host " Install PowerShell 7 via winget? (Y/n): " -ForegroundColor Cyan -NoNewline
+    $answer = (Read-Host).Trim().ToLower()
+    if ($answer -eq '' -or $answer -eq 'y' -or $answer -eq 'yes') {
+        Write-Host " Installing Microsoft.PowerShell via winget..." -ForegroundColor Cyan
         if (-not $WhatIf) {
             winget install --id Microsoft.PowerShell --silent --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
             if ($LASTEXITCODE -eq 0) {
-                Write-OK $L.pwsh7Installed
+                Write-Host " ✓ PowerShell 7 installed. Restarting installer..." -ForegroundColor Green
                 $args = if ($WhatIf) { @('-WhatIf') } else { @() }
                 pwsh -NoProfile -File "$PSCommandPath" @args
                 exit 0
-            } else { Write-Warn ($L.pwsh7Failed -f $LASTEXITCODE); exit 1 }
+            } else {
+                Write-Host " ✗ Installation failed (exit code $LASTEXITCODE). Continuing with limited compatibility..." -ForegroundColor Red
+            }
         }
-    } else { exit 1 }
+    } else {
+        Write-Host " Continuing with limited compatibility mode (PowerShell $verStr)." -ForegroundColor DarkGray
+        Write-Host " Some features (ANSI colors, interactive menus) may not work correctly." -ForegroundColor DarkGray
+        Write-Host ""
+    }
 }
 #endregion
 
@@ -360,10 +372,6 @@ $RU = @{
   webCopying = "Копирование в {0}"
 
   # ─── Auto-install prompts ───────────────────────────────────
-  pwshTooOld = "PowerShell 7+ required (current: {0}). Установить PowerShell 7?"
-  installingPwsh7 = "Устанавливаю PowerShell 7..."
-  pwsh7Installed = "PowerShell 7 установлен. Перезапускаю..."
-  pwsh7Failed = "PowerShell 7 не установлен: {0}"
   offerWinget = "winget не найден. Установить?"
   installingWinget = "Устанавливаю winget..."
   wingetInstalled = "winget установлен"
@@ -515,10 +523,6 @@ $EN = @{
   webCopying = "Copying to {0}"
 
   # ─── Auto-install prompts ───────────────────────────────────
-  pwshTooOld = "PowerShell 7+ required (current: {0}). Install PowerShell 7?"
-  installingPwsh7 = "Installing PowerShell 7..."
-  pwsh7Installed = "PowerShell 7 installed. Restarting..."
-  pwsh7Failed = "PowerShell 7 not installed: {0}"
   offerWinget = "winget not found. Install it?"
   installingWinget = "Installing winget..."
   wingetInstalled = "winget installed"
@@ -543,7 +547,7 @@ $EN = @{
 $L = $RU
 
 #region ─── TuiEngine ─────────────────────────────────────────
-$tuiPath = Join-Path ($PSScriptRoot ?? $repoRoot) 'tui-engine.ps1'; if (Test-Path $tuiPath) { . $tuiPath }
+$tuiEngineDir = if ($PSScriptRoot) { $PSScriptRoot } else { $repoRoot }; $tuiPath = Join-Path $tuiEngineDir 'tui-engine.ps1'; if (Test-Path $tuiPath) { . $tuiPath }
 #endregion
 
 #region ─── Prerequisites ────────────────────────────────────
