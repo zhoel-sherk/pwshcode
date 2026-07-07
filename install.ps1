@@ -36,6 +36,53 @@ $IS_WEB = [string]::IsNullOrEmpty($PSScriptRoot) -or $MyInvocation.MyCommand.Pat
 $REPO_URL = 'https://github.com/zhoel-sherk/pwshcode.git'
 $RAW_URL  = 'https://raw.githubusercontent.com/zhoel-sherk/pwshcode/main'
 
+# ─── GitHub mirrors for restricted networks ──────────────────
+$GITHUB_MIRRORS = @()
+if ($env:GITHUB_MIRROR) { $GITHUB_MIRRORS += $env:GITHUB_MIRROR }
+$GITHUB_MIRRORS += @(
+    ''                                                    # direct (always first)
+    'https://ghproxy.net/'                                # ghproxy
+    'https://mirror.ghproxy.com/'                         # mirror.ghproxy
+    'https://ghproxy.com/'                                # ghproxy.com
+    'https://gh.api.99988866.xyz/'                        # CN mirror
+)
+
+function Resolve-GithubUrl($Url) {
+    if ($Url -match '^https://(raw\.)?githubusercontent\.com' -or $Url -match '^https://github\.com') {
+        $path = $Url -replace '^https://(raw\.)?githubusercontent\.com/', ''
+        $path = $path -replace '^https://github\.com/', ''
+        $mirrors = @()
+        if ($env:GITHUB_MIRROR) { $mirrors += $env:GITHUB_MIRROR }
+        $mirrors += '', 'https://ghproxy.net/', 'https://mirror.ghproxy.com/', 'https://ghproxy.com/', 'https://gh.api.99988866.xyz/'
+        foreach ($m in $mirrors) {
+            if ([string]::IsNullOrEmpty($m)) { $m = '' }
+            $resolved = "$m$Url"
+            if ($resolved -eq $Url) { $resolved = $Url }
+            return $resolved, $path, $Url
+        }
+    }
+    return $Url, '', $Url
+}
+
+function Invoke-WebWithMirror($Url, $OutFile, $TimeoutSec = 15) {
+    $mirrors = @()
+    if ($env:GITHUB_MIRROR) { $mirrors += $env:GITHUB_MIRROR }
+    $mirrors += '', 'https://ghproxy.net/', 'https://mirror.ghproxy.com/', 'https://ghproxy.com/', 'https://gh.api.99988866.xyz/'
+    $lastErr = $null
+    foreach ($m in $mirrors) {
+        $src = if ($m) { "$m$Url" } else { $Url }
+        try {
+            if ($OutFile) {
+                Invoke-WebRequest -Uri $src -OutFile $OutFile -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+            } else {
+                return Invoke-WebRequest -Uri $src -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+            }
+            return $true
+        } catch { $lastErr = $_; continue }
+    }
+    throw $lastErr
+}
+
 if ($IS_WEB) {
     $tmpDir = "$env:TEMP\pwshcode-install-$([System.IO.Path]::GetRandomFileName())"
     $null = New-Item -ItemType Directory -Path $tmpDir -Force
@@ -48,7 +95,7 @@ if ($IS_WEB) {
 
     $zipOk = $false
     try {
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+        $null = Invoke-WebWithMirror -Url $zipUrl -OutFile $zipPath -TimeoutSec 30
         if ((Get-Item $zipPath).Length -gt 1000) {
             Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force -ErrorAction Stop
             $repoRoot = Get-ChildItem -LiteralPath $tmpDir -Directory | Select-Object -First 1 -ExpandProperty FullName
@@ -551,7 +598,7 @@ function Test-Prerequisites {
     }
 
     try {
-        $null = Invoke-WebRequest -Uri 'https://raw.githubusercontent.com' -UseBasicParsing -TimeoutSec 5 -Method Head
+        try { $null = Invoke-WebWithMirror -Url 'https://raw.githubusercontent.com' -TimeoutSec 5 } catch { throw }
         Write-OK $L.githubAccess
     } catch {
         Write-Fail $L.noGithub
