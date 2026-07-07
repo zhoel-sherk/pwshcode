@@ -28,9 +28,12 @@ if ($script:PwshMajor -lt 7) {
             winget install --id Microsoft.PowerShell --silent --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
             if ($LASTEXITCODE -eq 0) {
                 Write-Host " ✓ PowerShell 7 installed. Restarting installer..." -ForegroundColor Green
-                $args = if ($WhatIf) { @('-WhatIf') } else { @() }
-                pwsh -NoProfile -File "$PSCommandPath" @args
-                exit 0
+                if ($PSCommandPath) {
+                    $restartArgs = if ($WhatIf) { @('-WhatIf') } else { @() }
+                    pwsh -NoProfile -File "$PSCommandPath" @restartArgs
+                    exit 0
+                }
+                Write-Host "   Relaunch manually: pwsh -NoProfile -File <path>" -ForegroundColor DarkGray
             } else {
                 Write-Host " ✗ Installation failed (exit code $LASTEXITCODE). Continuing with limited compatibility..." -ForegroundColor Red
             }
