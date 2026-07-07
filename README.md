@@ -185,4 +185,6 @@ MIT © 2026 [zhoel-sherk](https://github.com/zhoel-sherk)
 
 **PAKT (Pipe-Aligned Kompact Text)** — оригинальная концепция: [github.com/sriinnu/clipforge-PAKT](https://github.com/sriinnu/clipforge-PAKT)
 
+**TUI-рендеринг** — боксы, fallback-рендеринг и палитра вдохновлены [PSYamlTUI](https://github.com/dan-metzler/PSYamlTUI) (MIT, Dan Metzler)
+
 </div>
