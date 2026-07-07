@@ -195,37 +195,87 @@ function Show-TuiProgress {
 function Show-TuiMenuRadio {
     <#
     .SYNOPSIS
-        Radio-button menu. Arrow keys + Enter. Returns selected index.
+        Radio-button menu. ↑↓/j/k/PgUp/PgDn/Home/End + Enter.
+        Returns selected index.
     #>
     param($Title = "", $Options = @(), $DefaultIndex = 0)
 
     $sel = $DefaultIndex
     $opts = @($Options)
+    $scrollOff = 0
+    $boxColor = $TuiC.FgBlue
 
-    # Reserve blank lines for menu + title
-    Write-Host "`n   $($TuiC.Bold)$Title$($TuiC.Reset)"
-    for ($i = 0; $i -lt $opts.Count; $i++) { Write-Host "" }
-    $top = (try { [Console]::CursorTop } catch { 0 }) - $opts.Count
+    # Calculate box width
+    $labels = $opts | ForEach-Object { if ($_ -is [hashtable]) { $_.label } else { $_ } }
+    $maxLabel = ($labels | Measure-Object -Maximum Length).Maximum
+    $maxLabel = [Math]::Max($maxLabel, $Title.Length)
+    $boxW = $maxLabel + 8
+    $availH = (try { [Console]::WindowHeight } catch { 25 }) - 10
+    $maxVis = [Math]::Max(3, [Math]::Min($opts.Count, $availH))
+
+    Write-Host ""
+    for ($i = 0; $i -lt $maxVis + 3; $i++) { Write-Host "" }
+    $top = (try { [Console]::CursorTop } catch { 0 }) - $maxVis - 3
 
     try { [Console]::CursorVisible = $false } catch {}
     try {
         while ($true) {
+            # Clamp scroll offset
+            if ($sel -lt $scrollOff) { $scrollOff = $sel }
+            if ($sel -ge $scrollOff + $maxVis) { $scrollOff = $sel - $maxVis + 1 }
+
             New-TuiFrame
-            for ($i = 0; $i -lt $opts.Count; $i++) {
-                $mark = if ($i -eq $sel) { "$($TuiC.Cyan)◉$($TuiC.Reset)" } else { "$($TuiC.Grey)○$($TuiC.Reset)" }
-                $label = if ($opts[$i] -is [hashtable]) { $opts[$i].label } else { $opts[$i] }
-                if ($i -eq $sel) {
-                    $line = "  $mark $($TuiC.Reverse)$label$($TuiC.Reset)"
+
+            # Title line
+            $titleBar = " $Title "
+            $paddedTitle = "$boxColor╔$('═' * [Math]::Max(1, $boxW - $titleBar.Length - 2)) $titleBar $('═' * 1)╗$($TuiC.Reset)"
+            Write-TuiLine -X 3 -Y $top -Text $paddedTitle
+
+            # Menu items
+            $endVis = [Math]::Min($scrollOff + $maxVis, $opts.Count)
+            for ($vi = $scrollOff; $vi -lt $endVis; $vi++) {
+                $y = $top + 1 + ($vi - $scrollOff)
+                $mark = if ($vi -eq $sel) { "$($TuiC.Cyan)◉$($TuiC.Reset)" } else { "$($TuiC.Grey)○$($TuiC.Reset)" }
+                $label = if ($opts[$vi] -is [hashtable]) { $opts[$vi].label } else { $opts[$vi] }
+                if ($vi -eq $sel) {
+                    $line = "║ $mark $($TuiC.Reverse)$label$($TuiC.Reset)$(' ' * ($boxW - $label.Length - 6))║"
                 } else {
-                    $line = "  $mark $($TuiC.Grey)$label$($TuiC.Reset)"
+                    $line = "║ $mark $($TuiC.Grey)$label$($TuiC.Reset)$(' ' * ($boxW - $label.Length - 6))║"
                 }
-                Write-TuiLine -X 3 -Y ($top + $i) -Text $line
+                Write-TuiLine -X 3 -Y $y -Text "$boxColor$line$($TuiC.Reset)"
             }
+
+            # Empty lines if list shorter than box
+            for ($vi = $endVis; $vi -lt $scrollOff + $maxVis; $vi++) {
+                $y = $top + 1 + ($vi - $scrollOff)
+                Write-TuiLine -X 3 -Y $y -Text "$boxColor║$(' ' * $boxW)║$($TuiC.Reset)"
+            }
+
+            # Bottom border with scroll indicator
+            $scrollTxt = ""
+            if ($opts.Count -gt $maxVis) {
+                $pct = [Math]::Floor(($scrollOff + $endVis) / $opts.Count * 100)
+                $scrollTxt = " ↑ $($scrollOff + 1)-$endVis/$($opts.Count) ↓"
+            }
+            $botBar = "╚$('═' * ($boxW - 2))╝"
+            if ($scrollTxt) {
+                $botBar = "╚$('═' * ($boxW - 4 - $scrollTxt.Length))$scrollTxt $('═')╝"
+            }
+            Write-TuiLine -X 3 -Y ($top + $maxVis + 1) -Text "$boxColor$botBar$($TuiC.Reset)"
+
+            # Help bar
+            $help = " ═══ ↑↓/j/k navigate  PgUp/PgDn  Home/End  Enter OK ═══"
+            Write-TuiLine -X 3 -Y ($top + $maxVis + 2) -Text "$($TuiC.Dim)$help$($TuiC.Reset)"
+
             Send-TuiFrame
 
             $key = Read-TuiKey
-            if ($key.Key -eq 'UpArrow' -and $sel -gt 0) { $sel-- }
-            elseif ($key.Key -eq 'DownArrow' -and $sel -lt $opts.Count - 1) { $sel++ }
+            if ($key.Key -eq 'UpArrow' -or $key.KeyChar -eq 'k') { if ($sel -gt 0) { $sel-- } }
+            elseif ($key.Key -eq 'DownArrow' -or $key.KeyChar -eq 'j') { if ($sel -lt $opts.Count - 1) { $sel++ } }
+            elseif ($key.Key -eq 'PageUp') { $sel = [Math]::Max(0, $sel - $maxVis) }
+            elseif ($key.Key -eq 'PageDown') { $sel = [Math]::Min($opts.Count - 1, $sel + $maxVis) }
+            elseif ($key.Key -eq 'Home') { $sel = 0 }
+            elseif ($key.Key -eq 'End') { $sel = $opts.Count - 1 }
             elseif ($key.Key -eq 'Enter') { break }
         }
     } finally {
@@ -240,41 +290,97 @@ function Show-TuiMenuRadio {
 function Show-TuiMenuCheckbox {
     <#
     .SYNOPSIS
-        Checkbox menu. Arrow keys + Space + Enter. Returns array of bool.
+        Checkbox menu. ↑↓/j/k + Space + Enter. Returns array of bool.
     #>
     param($Title = "", $Options = @())
 
     $states = @($Options | ForEach-Object { $true })
     $idx = 0
     $opts = @($Options)
+    $scrollOff = 0
+    $boxColor = $TuiC.FgBlue
 
-    Write-Host "`n   $($TuiC.Bold)$Title$($TuiC.Reset)"
-    Write-Host "   $($TuiC.Grey)(↑↓ navigate, Space — toggle, Enter — OK)$($TuiC.Reset)"
-    for ($i = 0; $i -lt $opts.Count; $i++) { Write-Host "" }
-    $top = (try { [Console]::CursorTop } catch { 0 }) - $opts.Count
+    # Calculate box width
+    $labels = $opts | ForEach-Object { if ($_ -is [hashtable]) { $_.label } else { $_ } }
+    $maxLabel = ($labels | Measure-Object -Maximum Length).Maximum
+    $maxLabel = [Math]::Max($maxLabel, $Title.Length)
+    $boxW = $maxLabel + 18
+    $availH = (try { [Console]::WindowHeight } catch { 25 }) - 10
+    $maxVis = [Math]::Max(3, [Math]::Min($opts.Count, $availH))
+
+    Write-Host ""
+    for ($i = 0; $i -lt $maxVis + 3; $i++) { Write-Host "" }
+    $top = (try { [Console]::CursorTop } catch { 0 }) - $maxVis - 3
 
     try { [Console]::CursorVisible = $false } catch {}
     try {
         while ($true) {
+            if ($idx -lt $scrollOff) { $scrollOff = $idx }
+            if ($idx -ge $scrollOff + $maxVis) { $scrollOff = $idx - $maxVis + 1 }
+
             New-TuiFrame
-            for ($i = 0; $i -lt $opts.Count; $i++) {
-                $box = if ($states[$i]) { "$($TuiC.FgGreen)☑$($TuiC.Reset)" } else { "$($TuiC.Grey)☐$($TuiC.Reset)" }
-                if ($opts[$i] -is [hashtable]) {
-                    $label = $opts[$i].label
-                    $desc = if ($opts[$i].desc) { " $($TuiC.Dim)$($opts[$i].desc)$($TuiC.Reset)" } else { "" }
-                } else { $label = $opts[$i]; $desc = "" }
-                if ($i -eq $idx) {
-                    $line = "  $box $($TuiC.Reverse)$label$($TuiC.Reset)$desc"
+
+            # Title line
+            $titleBar = " $Title "
+            $paddedTitle = "$boxColor╔$('═' * [Math]::Max(1, $boxW - $titleBar.Length - 2)) $titleBar $('═' * 1)╗$($TuiC.Reset)"
+            Write-TuiLine -X 3 -Y $top -Text $paddedTitle
+
+            # Menu items
+            $endVis = [Math]::Min($scrollOff + $maxVis, $opts.Count)
+            for ($vi = $scrollOff; $vi -lt $endVis; $vi++) {
+                $y = $top + 1 + ($vi - $scrollOff)
+                $box = if ($states[$vi]) { "$($TuiC.FgGreen)☑$($TuiC.Reset)" } else { "$($TuiC.Grey)☐$($TuiC.Reset)" }
+                $label = if ($opts[$vi] -is [hashtable]) { $opts[$vi].label } else { $opts[$vi] }
+                $desc = if ($opts[$vi] -is [hashtable] -and $opts[$vi].desc) { " $($TuiC.Dim)$($opts[$vi].desc)$($TuiC.Reset)" } else { "" }
+                $innerW = $boxW - 4
+                if ($vi -eq $idx) {
+                    $line = "║ $box $($TuiC.Reverse)$label$($TuiC.Reset)$desc$(' ' * [Math]::Max(0, $innerW - $label.Length - $desc.Length - 4 - 2))║"
                 } else {
-                    $line = "  $box $label$desc"
+                    $line = "║ $box $label$desc$(' ' * [Math]::Max(0, $innerW - $label.Length - $desc.Length - 4 - 2))║"
                 }
-                Write-TuiLine -X 3 -Y ($top + $i) -Text $line
+                # Strip ANSI for width calculation
+                $cleanDesc = if ($opts[$vi] -is [hashtable] -and $opts[$vi].desc) { $opts[$vi].desc } else { "" }
+                $totalStrLen = $label.Length + 4 + 2 + $cleanDesc.Length
+                $padding = [Math]::Max(0, $innerW - $totalStrLen)
+                if ($vi -eq $idx) {
+                    $line = "║ $box $($TuiC.Reverse)$label$($TuiC.Reset)$desc$(' ' * $padding)║"
+                } else {
+                    $line = "║ $box $label$desc$(' ' * $padding)║"
+                }
+                Write-TuiLine -X 3 -Y $y -Text "$boxColor$line$($TuiC.Reset)"
             }
+
+            # Empty lines if list shorter than box
+            for ($vi = $endVis; $vi -lt $scrollOff + $maxVis; $vi++) {
+                $y = $top + 1 + ($vi - $scrollOff)
+                Write-TuiLine -X 3 -Y $y -Text "$boxColor║$(' ' * $boxW)║$($TuiC.Reset)"
+            }
+
+            # Bottom border with scroll indicator
+            $scrollTxt = ""
+            if ($opts.Count -gt $maxVis) {
+                $endTxt = $endVis
+                $scrollTxt = " ↑ $($scrollOff + 1)-$endTxt/$($opts.Count) ↓"
+            }
+            $botBar = "╚$('═' * ($boxW - 2))╝"
+            if ($scrollTxt) {
+                $botBar = "╚$('═' * ($boxW - 4 - $scrollTxt.Length))$scrollTxt $('═')╝"
+            }
+            Write-TuiLine -X 3 -Y ($top + $maxVis + 1) -Text "$boxColor$botBar$($TuiC.Reset)"
+
+            # Help bar
+            $help = " ═══ Space toggle  ↑↓/j/k navigate  PgUp/PgDn  Enter OK ═══"
+            Write-TuiLine -X 3 -Y ($top + $maxVis + 2) -Text "$($TuiC.Dim)$help$($TuiC.Reset)"
+
             Send-TuiFrame
 
             $key = Read-TuiKey
-            if ($key.Key -eq 'UpArrow' -and $idx -gt 0) { $idx-- }
-            elseif ($key.Key -eq 'DownArrow' -and $idx -lt $opts.Count - 1) { $idx++ }
+            if ($key.Key -eq 'UpArrow' -or $key.KeyChar -eq 'k') { if ($idx -gt 0) { $idx-- } }
+            elseif ($key.Key -eq 'DownArrow' -or $key.KeyChar -eq 'j') { if ($idx -lt $opts.Count - 1) { $idx++ } }
+            elseif ($key.Key -eq 'PageUp') { $idx = [Math]::Max(0, $idx - $maxVis) }
+            elseif ($key.Key -eq 'PageDown') { $idx = [Math]::Min($opts.Count - 1, $idx + $maxVis) }
+            elseif ($key.Key -eq 'Home') { $idx = 0 }
+            elseif ($key.Key -eq 'End') { $idx = $opts.Count - 1 }
             elseif ($key.Key -eq 'Spacebar') { $states[$idx] = -not $states[$idx] }
             elseif ($key.Key -eq 'Enter') { break }
         }
