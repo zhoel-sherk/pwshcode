@@ -589,7 +589,9 @@ function Show-MenuRadio($Title, $Options, $DefaultIndex = 0) {
     $sel = $DefaultIndex
     $opts = @($Options)
     Write-Host "`n   $($C.Bold)$Title$($C.Reset)"
-    $top = Get-SafeCursorTop
+    # Reserve lines so cursor positioning never exceeds buffer
+    for ($i = 0; $i -lt $opts.Count; $i++) { Write-Host "" }
+    $top = Get-SafeCursorTop - $opts.Count
     Hide-Cursor
     try {
         while ($true) {
@@ -598,8 +600,7 @@ function Show-MenuRadio($Title, $Options, $DefaultIndex = 0) {
                 $mark = if ($i -eq $sel) { "$($C.Cyan)◉$($C.Reset)" } else { "$($C.Grey)○$($C.Reset)" }
                 $label = if ($opts[$i] -is [hashtable]) { $opts[$i].label } else { $opts[$i] }
                 $suffix = if ($i -eq $sel) { "$($C.Reverse)$label$($C.Reset)" } else { "$($C.Grey)$label$($C.Reset)" }
-                Write-Host "$mark $suffix" -NoNewline
-                Write-Host (' ' * [Math]::Max(0, (Get-SafeWindowWidth) - (Get-SafeCursorLeft)))
+                Write-Host "$ESC[2K  $mark $suffix"
             }
             $key = Invoke-SafeReadKey
             if ($key.Key -eq 'UpArrow' -and $sel -gt 0) { $sel-- }
@@ -617,11 +618,12 @@ function Show-MenuCheckbox($Title, $Options) {
     $opts = @($Options)
     Write-Host "`n   $($C.Bold)$Title$($C.Reset)"
     Write-Muted "   $($L.navUpDownCheck)"
-    $top = (Get-SafeCursorTop) + 1
+    # Reserve lines so cursor positioning never exceeds buffer
+    for ($i = 0; $i -lt $opts.Count; $i++) { Write-Host "" }
+    $top = (Get-SafeCursorTop) - $opts.Count
     Hide-Cursor
     try {
         while ($true) {
-            Set-SafeCursorPosition 0 $top
             for ($i = 0; $i -lt $opts.Count; $i++) {
                 Set-SafeCursorPosition 3 ($top + $i)
                 $box = if ($states[$i]) { "$($C.Green)☑$($C.Reset)" } else { "$($C.Grey)☐$($C.Reset)" }
@@ -630,8 +632,7 @@ function Show-MenuCheckbox($Title, $Options) {
                     $desc = if ($opts[$i].desc) { " $($C.Dim)$($opts[$i].desc)$($C.Reset)" } else { "" }
                 } else { $label = $opts[$i]; $desc = "" }
                 $suffix = if ($i -eq $idx) { "$($C.Reverse)$label$($C.Reset)$desc" } else { "$label$desc" }
-                Write-Host "$box $suffix" -NoNewline
-                Write-Host (' ' * [Math]::Max(0, (Get-SafeWindowWidth) - (Get-SafeCursorLeft)))
+                Write-Host "$ESC[2K  $box $suffix"
             }
             $key = Invoke-SafeReadKey
             if ($key.Key -eq 'UpArrow' -and $idx -gt 0) { $idx-- }
