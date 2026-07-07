@@ -33,7 +33,7 @@ if ($script:PwshMajor -lt 7) {
                     pwsh -NoProfile -File "$PSCommandPath" @restartArgs
                     exit 0
                 }
-                Write-Host "   Relaunch manually: pwsh -NoProfile -File <path>" -ForegroundColor DarkGray
+                Write-Host "   Relaunch manually: pwsh -NoProfile -File [path]" -ForegroundColor DarkGray
             } else {
                 Write-Host " ✗ Installation failed (exit code $LASTEXITCODE). Continuing with limited compatibility..." -ForegroundColor Red
             }
