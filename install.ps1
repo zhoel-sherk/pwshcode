@@ -920,11 +920,9 @@ $doneContent = $L.doneTitle
 $donePad = $doneW - 2 - $doneContent.Length
 $doneLeft = [Math]::Max(0, [Math]::Floor($donePad / 2))
 $doneRight = [Math]::Max(0, $donePad - $doneLeft)
-$doneX = Get-TuiBoxX $doneW
-$doneIndent = ' ' * $doneX
-Write-Host "$doneIndent$($C.Bold)$($C.Green)╔$('═' * ($doneW - 2))╗$($C.Reset)"
-Write-Host "$doneIndent$($C.Bold)$($C.Green)║$(' ' * $doneLeft)$doneContent$(' ' * $doneRight)║$($C.Reset)"
-Write-Host "$doneIndent$($C.Bold)$($C.Green)╚$('═' * ($doneW - 2))╝$($C.Reset)"
+Write-Host "   $($C.Bold)$($C.Green)╔$('═' * ($doneW - 2))╗$($C.Reset)"
+Write-Host "   $($C.Bold)$($C.Green)║$(' ' * $doneLeft)$doneContent$(' ' * $doneRight)║$($C.Reset)"
+Write-Host "   $($C.Bold)$($C.Green)╚$('═' * ($doneW - 2))╝$($C.Reset)"
 Write-Host ""
 
 Write-Step $L.whatNext
