@@ -497,20 +497,8 @@ $EN = @{
 
 $L = $RU
 
-#region ─── Banner ───────────────────────────────────────────
-$BANNER = @"
-$($C.Bold)$($C.Magenta)
-     ██████╗ ██╗    ██╗███████╗██╗  ██╗ ██████╗ ██████╗ ██████╗ ███████╗
-     ██╔══██╗██║    ██║██╔════╝██║  ██║██╔════╝██╔═══██╗██╔══██╗██╔════╝
-     ██████╔╝██║ █╗ ██║███████╗███████║██║     ██║   ██║██║  ██║█████╗
-     ██╔═══╝ ██║███╗██║╚════██║██╔══██║██║     ██║   ██║██║  ██║██╔══╝
-     ██║     ╚███╔███╔╝███████║██║  ██║╚██████╗╚██████╔╝██████╔╝███████╗
-     ╚═╝      ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
-$($C.Reset)
-$($C.Dim)  PowerShell 7 + opencode skills installer$($C.Reset)
-$($C.Dim)  https://github.com/zhoel-sherk/pwshcode$($C.Reset)
-
-"@
+#region ─── TuiEngine ─────────────────────────────────────────
+. (Join-Path $PSScriptRoot 'tui-engine.ps1' -ErrorAction SilentlyContinue)
 #endregion
 
 #region ─── Prerequisites ────────────────────────────────────
@@ -584,67 +572,7 @@ function Test-Prerequisites {
 }
 #endregion
 
-#region ─── Interactive menus ────────────────────────────────
-function Show-MenuRadio($Title, $Options, $DefaultIndex = 0) {
-    $sel = $DefaultIndex
-    $opts = @($Options)
-    Write-Host "`n   $($C.Bold)$Title$($C.Reset)"
-    # Reserve lines so cursor positioning never exceeds buffer
-    for ($i = 0; $i -lt $opts.Count; $i++) { Write-Host "" }
-    $top = Get-SafeCursorTop - $opts.Count
-    Hide-Cursor
-    try {
-        while ($true) {
-            for ($i = 0; $i -lt $opts.Count; $i++) {
-                Set-SafeCursorPosition 3 ($top + $i)
-                $mark = if ($i -eq $sel) { "$($C.Cyan)◉$($C.Reset)" } else { "$($C.Grey)○$($C.Reset)" }
-                $label = if ($opts[$i] -is [hashtable]) { $opts[$i].label } else { $opts[$i] }
-                $suffix = if ($i -eq $sel) { "$($C.Reverse)$label$($C.Reset)" } else { "$($C.Grey)$label$($C.Reset)" }
-                Write-Host "$ESC[2K  $mark $suffix"
-            }
-            $key = Invoke-SafeReadKey
-            if ($key.Key -eq 'UpArrow' -and $sel -gt 0) { $sel-- }
-            elseif ($key.Key -eq 'DownArrow' -and $sel -lt $opts.Count - 1) { $sel++ }
-            elseif ($key.Key -eq 'Enter') { break }
-        }
-    } finally { Show-Cursor }
-    Write-Host ""
-    return $sel
-}
-
-function Show-MenuCheckbox($Title, $Options) {
-    $states = @($Options | ForEach-Object { $true })
-    $idx = 0
-    $opts = @($Options)
-    Write-Host "`n   $($C.Bold)$Title$($C.Reset)"
-    Write-Muted "   $($L.navUpDownCheck)"
-    # Reserve lines so cursor positioning never exceeds buffer
-    for ($i = 0; $i -lt $opts.Count; $i++) { Write-Host "" }
-    $top = (Get-SafeCursorTop) - $opts.Count
-    Hide-Cursor
-    try {
-        while ($true) {
-            for ($i = 0; $i -lt $opts.Count; $i++) {
-                Set-SafeCursorPosition 3 ($top + $i)
-                $box = if ($states[$i]) { "$($C.Green)☑$($C.Reset)" } else { "$($C.Grey)☐$($C.Reset)" }
-                if ($opts[$i] -is [hashtable]) {
-                    $label = $opts[$i].label
-                    $desc = if ($opts[$i].desc) { " $($C.Dim)$($opts[$i].desc)$($C.Reset)" } else { "" }
-                } else { $label = $opts[$i]; $desc = "" }
-                $suffix = if ($i -eq $idx) { "$($C.Reverse)$label$($C.Reset)$desc" } else { "$label$desc" }
-                Write-Host "$ESC[2K  $box $suffix"
-            }
-            $key = Invoke-SafeReadKey
-            if ($key.Key -eq 'UpArrow' -and $idx -gt 0) { $idx-- }
-            elseif ($key.Key -eq 'DownArrow' -and $idx -lt $opts.Count - 1) { $idx++ }
-            elseif ($key.Key -eq 'Spacebar') { $states[$idx] = -not $states[$idx] }
-            elseif ($key.Key -eq 'Enter') { break }
-        }
-    } finally { Show-Cursor }
-    Write-Host ""
-    return $states
-}
-#endregion
+# (menu functions moved to tui-engine.ps1)
 
 #region ─── Install logic ────────────────────────────────────
 function Install-ProfileFiles {
@@ -753,17 +681,17 @@ function Install-ContextCompressor {
 
 #region ─── Main ─────────────────────────────────────────────
 Clear-Screen
-Write-Host $BANNER
+Show-TuiBanner
 
 # ─── Language selection ────────────────────────────────────
 $L = $RU
-$langChoice = Show-MenuRadio $L.chooseLang @(
+$langChoice = Show-TuiMenuRadio $L.chooseLang @(
   @{label = $RU.langName }
   @{label = $EN.langName }
 )
 if ($langChoice -eq 1) { $L = $EN }
 Clear-Screen
-Write-Host $BANNER
+Show-TuiBanner
 Write-Muted "   $(Get-Date -Format 'yyyy-MM-dd HH:mm')  |  $(if ($IS_WEB) { $L.webMode } else { $L.localMode })"
 Write-Host ""
 
@@ -795,7 +723,7 @@ if ($IS_WEB) {
 # ─── Profile setup ─────────────────────────────────────────
 Write-Step $L.profileSetup
 $profilePath = "$([Environment]::GetFolderPath('MyDocuments'))\PowerShell\Microsoft.PowerShell_profile.ps1"
-$profileChoice = Show-MenuRadio $L.profileAction @(
+$profileChoice = Show-TuiMenuRadio $L.profileAction @(
     @{label = $L.profileAdd }
     @{label = $L.profileReplace }
     @{label = $L.profileSkip }
@@ -827,7 +755,7 @@ if ($allSkills.Count -eq 0) {
 Write-Step $L.compressorTitle
 Write-Muted $L.compressorHelp
 
-$compressorChoice = Show-MenuRadio $L.compressorMode @(
+$compressorChoice = Show-TuiMenuRadio $L.compressorMode @(
     @{label = $L.compressorAuto; desc = $L.compressorAutoDesc }
     @{label = $L.compressorManual; desc = $L.compressorManualDesc }
     @{label = $L.compressorOff }
@@ -842,7 +770,7 @@ Write-Host ""
 
 # ─── Prompt selection ───────────────────────────────────────
 Write-Step $L.promptTitle
-$promptChoice = Show-MenuRadio $L.promptChoice @(
+$promptChoice = Show-TuiMenuRadio $L.promptChoice @(
     @{label = $L.promptOmp; desc = $L.promptOmpDesc }
     @{label = $L.promptStarship; desc = $L.promptStarshipDesc }
     @{label = $L.promptNone; desc = $L.promptNoneDesc }
@@ -855,7 +783,7 @@ $installWinget = Prompt-YesNo ($L.wingetQuestion -f $wingetExtra) $true
 
 # ─── Review ────────────────────────────────────────────────
 Clear-Screen
-Write-Host $BANNER
+Show-TuiBanner
 Write-Step $L.reviewTitle
 Write-Info ($L.reviewDir -f $installDir)
 $profileLabels = @($L.profileAdd, $L.profileReplace, $L.profileSkip)
@@ -925,7 +853,7 @@ if ($IS_WEB -and -not $WhatIf) { Remove-Item -Recurse -Force $tmpDir -ErrorActio
 
 # ─── Done ──────────────────────────────────────────────────
 Clear-Screen
-Write-Host $BANNER
+Show-TuiBanner
 Write-Host ""
 Write-Host "   $($C.Bold)$($C.Green)╔══════════════════════════════════╗$($C.Reset)"
 Write-Host "   $($C.Bold)$($C.Green)║     $($L.doneTitle)$($C.Green)      ║$($C.Reset)"
