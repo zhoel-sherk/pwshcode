@@ -210,12 +210,14 @@ function Show-TuiMenuRadio {
     $maxLabel = ($labels | Measure-Object -Maximum Length).Maximum
     $maxLabel = [Math]::Max($maxLabel, $Title.Length)
     $boxW = $maxLabel + 8
-    $availH = (try { [Console]::WindowHeight } catch { 25 }) - 10
+    try { $winH = [Console]::WindowHeight } catch { $winH = 25 }
+    $availH = $winH - 10
     $maxVis = [Math]::Max(3, [Math]::Min($opts.Count, $availH))
 
     Write-Host ""
     for ($i = 0; $i -lt $maxVis + 3; $i++) { Write-Host "" }
-    $top = (try { [Console]::CursorTop } catch { 0 }) - $maxVis - 3
+    try { $cursorTop = [Console]::CursorTop } catch { $cursorTop = 0 }
+    $top = $cursorTop - $maxVis - 3
 
     try { [Console]::CursorVisible = $false } catch {}
     try {
@@ -305,12 +307,14 @@ function Show-TuiMenuCheckbox {
     $maxLabel = ($labels | Measure-Object -Maximum Length).Maximum
     $maxLabel = [Math]::Max($maxLabel, $Title.Length)
     $boxW = $maxLabel + 18
-    $availH = (try { [Console]::WindowHeight } catch { 25 }) - 10
+    try { $winH = [Console]::WindowHeight } catch { $winH = 25 }
+    $availH = $winH - 10
     $maxVis = [Math]::Max(3, [Math]::Min($opts.Count, $availH))
 
     Write-Host ""
     for ($i = 0; $i -lt $maxVis + 3; $i++) { Write-Host "" }
-    $top = (try { [Console]::CursorTop } catch { 0 }) - $maxVis - 3
+    try { $cursorTop = [Console]::CursorTop } catch { $cursorTop = 0 }
+    $top = $cursorTop - $maxVis - 3
 
     try { [Console]::CursorVisible = $false } catch {}
     try {
