@@ -900,9 +900,14 @@ if ($IS_WEB -and -not $WhatIf) { Remove-Item -Recurse -Force $tmpDir -ErrorActio
 Clear-Screen
 Show-TuiBanner
 Write-Host ""
-Write-Host "   $($C.Bold)$($C.Green)╔══════════════════════════════════╗$($C.Reset)"
-Write-Host "   $($C.Bold)$($C.Green)║     $($L.doneTitle)$($C.Green)      ║$($C.Reset)"
-Write-Host "   $($C.Bold)$($C.Green)╚══════════════════════════════════╝$($C.Reset)"
+$doneW = 36
+$doneContent = $L.doneTitle
+$donePad = $doneW - 2 - $doneContent.Length
+$doneLeft = [Math]::Max(0, [Math]::Floor($donePad / 2))
+$doneRight = [Math]::Max(0, $donePad - $doneLeft)
+Write-Host "   $($C.Bold)$($C.Green)╔$('═' * ($doneW - 2))╗$($C.Reset)"
+Write-Host "   $($C.Bold)$($C.Green)║$(' ' * $doneLeft)$doneContent$(' ' * $doneRight)║$($C.Reset)"
+Write-Host "   $($C.Bold)$($C.Green)╚$('═' * ($doneW - 2))╝$($C.Reset)"
 Write-Host ""
 
 Write-Step $L.whatNext

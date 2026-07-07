@@ -29,10 +29,9 @@ $script:TuiChars.TL     = if ($script:TuiUseUnicode) { '╔' } else { '+' }
 $script:TuiChars.TR     = if ($script:TuiUseUnicode) { '╗' } else { '+' }
 $script:TuiChars.BL     = if ($script:TuiUseUnicode) { '╚' } else { '+' }
 $script:TuiChars.BR     = if ($script:TuiUseUnicode) { '╝' } else { '+' }
-$script:TuiChars.RadioOn  = if ($script:TuiUseUnicode) { '◉' } else { '(o)' }
 $script:TuiChars.RadioOff = if ($script:TuiUseUnicode) { '○' } else { '( )' }
-$script:TuiChars.CheckOn  = if ($script:TuiUseUnicode) { '☑' } else { '[x]' }
-$script:TuiChars.CheckOff = if ($script:TuiUseUnicode) { '☐' } else { '[ ]' }
+$script:TuiChars.CheckOn  = if ($script:TuiUseUnicode) { '✓' } else { '[x]' }
+$script:TuiChars.CheckOff = if ($script:TuiUseUnicode) { '○' } else { '[ ]' }
 $script:TuiChars.BarFill  = if ($script:TuiUseUnicode) { '█' } else { '#' }
 $script:TuiChars.BarEmpty = if ($script:TuiUseUnicode) { '░' } else { '.' }
 $script:TuiChars.ArrowUp  = if ($script:TuiUseUnicode) { '↑' } else { '^' }
@@ -272,7 +271,7 @@ function Show-TuiMenuRadio {
             $endVis = [Math]::Min($scrollOff + $maxVis, $opts.Count)
             for ($vi = $scrollOff; $vi -lt $endVis; $vi++) {
                 $y = $top + 1 + ($vi - $scrollOff)
-                $mark = if ($vi -eq $sel) { "$($TuiC.Cyan)$($C.RadioOn)$($TuiC.Reset)" } else { "$($TuiC.Grey)$($C.RadioOff)$($TuiC.Reset)" }
+                $mark = if ($vi -eq $sel) { "$($TuiC.Cyan)$($C.RadioOff)$($TuiC.Reset)" } else { "$($TuiC.Grey)$($C.RadioOff)$($TuiC.Reset)" }
                 $label = if ($opts[$vi] -is [hashtable]) { $opts[$vi].label } else { $opts[$vi] }
                 $cleanLabel = Strip-ANSI $label
                 $pad = [Math]::Max(0, $boxW - $cleanLabel.Length - 6)
@@ -374,9 +373,12 @@ function Show-TuiMenuCheckbox {
                 $label = if ($opts[$vi] -is [hashtable]) { $opts[$vi].label } else { $opts[$vi] }
                 $desc = if ($opts[$vi] -is [hashtable] -and $opts[$vi].desc) { " $($TuiC.Dim)$($opts[$vi].desc)$($TuiC.Reset)" } else { "" }
                 $cleanDesc = if ($opts[$vi] -is [hashtable] -and $opts[$vi].desc) { $opts[$vi].desc } else { "" }
-                $totalStrLen = $label.Length + 4 + 2 + $cleanDesc.Length
                 $innerW = $boxW - 4
-                $padding = [Math]::Max(0, $innerW - $totalStrLen)
+                if ($cleanDesc) {
+                    $padding = [Math]::Max(0, $innerW - $label.Length - $cleanDesc.Length - 2)
+                } else {
+                    $padding = [Math]::Max(0, $innerW - $label.Length - 1)
+                }
                 if ($vi -eq $idx) {
                     $line = "$($C.Vert) $box $($TuiC.Reverse)$label$($TuiC.Reset)$desc$(' ' * $padding)$($C.Vert)"
                 } else {
