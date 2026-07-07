@@ -36,6 +36,7 @@ $script:TuiChars.BarFill  = if ($script:TuiUseUnicode) { '█' } else { '#' }
 $script:TuiChars.BarEmpty = if ($script:TuiUseUnicode) { '░' } else { '.' }
 $script:TuiChars.ArrowUp  = if ($script:TuiUseUnicode) { '↑' } else { '^' }
 $script:TuiChars.ArrowDn  = if ($script:TuiUseUnicode) { '↓' } else { 'v' }
+$script:TuiChars.SelectArrow = if ($script:TuiUseUnicode) { '▸' } else { '>' }
 
 # ─── Engine state ───────────────────────────────────────────────
 
@@ -181,6 +182,14 @@ function Read-TuiKey {
     }
 }
 
+function Get-TuiBoxX($BoxWidth) {
+    $termW = try { [Console]::WindowWidth } catch { 80 }
+    if ($termW -gt 100) {
+        return [Math]::Max(3, [Math]::Floor(($termW - $BoxWidth) / 2))
+    }
+    return 3
+}
+
 # ─── Widget: Box ───────────────────────────────────────────────
 
 function Show-TuiBox {
@@ -254,6 +263,7 @@ function Show-TuiMenuRadio {
     for ($i = 0; $i -lt $maxVis + 3; $i++) { Write-Host "" }
     try { $cursorTop = [Console]::CursorTop } catch { $cursorTop = 0 }
     $top = $cursorTop - $maxVis - 3
+    $boxX = Get-TuiBoxX $boxW
 
     try { [Console]::CursorVisible = $false } catch {}
     try {
@@ -267,26 +277,27 @@ function Show-TuiMenuRadio {
             $leftPad = [Math]::Max(1, [Math]::Floor(($boxW - $titleBar.Length - 2) / 2))
             $rightPad = [Math]::Max(0, $boxW - $titleBar.Length - 2 - $leftPad)
             $paddedTitle = "$boxColor$($C.TL)$($C.Horiz * $leftPad)$titleBar$($C.Horiz * $rightPad)$($C.TR)$($TuiC.Reset)"
-            Write-TuiLine -X 3 -Y $top -Text $paddedTitle
+            Write-TuiLine -X $boxX -Y $top -Text $paddedTitle
 
             $endVis = [Math]::Min($scrollOff + $maxVis, $opts.Count)
             for ($vi = $scrollOff; $vi -lt $endVis; $vi++) {
                 $y = $top + 1 + ($vi - $scrollOff)
-                $mark = if ($vi -eq $sel) { "$($TuiC.Cyan)$($C.RadioOff)$($TuiC.Reset)" } else { "$($TuiC.Grey)$($C.RadioOff)$($TuiC.Reset)" }
                 $label = if ($opts[$vi] -is [hashtable]) { $opts[$vi].label } else { $opts[$vi] }
                 $cleanLabel = Strip-ANSI $label
                 $pad = [Math]::Max(0, $boxW - $cleanLabel.Length - 6)
                 if ($vi -eq $sel) {
-                    $line = "$($C.Vert) $mark $($TuiC.Reverse)$label$($TuiC.Reset)$(' ' * $pad)$($C.Vert)"
+                    $mark = "$($TuiC.Cyan)$($C.SelectArrow)$($TuiC.Reset)"
+                    $line = "$($C.Vert) $mark $($TuiC.Bold)$($TuiC.White)$label$($TuiC.Reset)$(' ' * $pad)$($C.Vert)"
                 } else {
-                    $line = "$($C.Vert) $mark $($TuiC.Grey)$label$($TuiC.Reset)$(' ' * $pad)$($C.Vert)"
+                    $mark = "$($TuiC.Grey)$($C.RadioOff)$($TuiC.Reset)"
+                    $line = "$($C.Vert) $mark $($TuiC.Dim)$label$($TuiC.Reset)$(' ' * $pad)$($C.Vert)"
                 }
-                Write-TuiLine -X 3 -Y $y -Text "$boxColor$line$($TuiC.Reset)"
+                Write-TuiLine -X $boxX -Y $y -Text "$boxColor$line$($TuiC.Reset)"
             }
 
             for ($vi = $endVis; $vi -lt $scrollOff + $maxVis; $vi++) {
                 $y = $top + 1 + ($vi - $scrollOff)
-                Write-TuiLine -X 3 -Y $y -Text "$boxColor$($C.Vert)$(' ' * $boxW)$($C.Vert)$($TuiC.Reset)"
+                Write-TuiLine -X $boxX -Y $y -Text "$boxColor$($C.Vert)$(' ' * $boxW)$($C.Vert)$($TuiC.Reset)"
             }
 
             $scrollTxt = ""
@@ -304,12 +315,12 @@ function Show-TuiMenuRadio {
             } else {
                 $botBar = "$($C.BL)$($C.Horiz * $innerW)$($C.BR)"
             }
-            Write-TuiLine -X 3 -Y ($top + $maxVis + 1) -Text "$boxColor$botBar$($TuiC.Reset)"
+            Write-TuiLine -X $boxX -Y ($top + $maxVis + 1) -Text "$boxColor$botBar$($TuiC.Reset)"
 
             $helpRaw = " $($C.Horiz * 3) $($C.ArrowUp)$($C.ArrowDn)/j/k nav  PgUp/PgDn  Home/End  Enter OK $($C.Horiz * 3)"
             $helpMax = [Math]::Max(4, $boxW - 2)
             $help = if ($helpRaw.Length -gt $helpMax) { $helpRaw.Substring(0, $helpMax) } else { $helpRaw }
-            Write-TuiLine -X 3 -Y ($top + $maxVis + 2) -Text "$($TuiC.Dim)$help$($TuiC.Reset)"
+            Write-TuiLine -X $boxX -Y ($top + $maxVis + 2) -Text "$($TuiC.Dim)$help$($TuiC.Reset)"
 
             Send-TuiFrame
 
@@ -358,6 +369,7 @@ function Show-TuiMenuCheckbox {
     for ($i = 0; $i -lt $maxVis + 3; $i++) { Write-Host "" }
     try { $cursorTop = [Console]::CursorTop } catch { $cursorTop = 0 }
     $top = $cursorTop - $maxVis - 3
+    $boxX = Get-TuiBoxX $boxW
 
     try { [Console]::CursorVisible = $false } catch {}
     try {
@@ -371,7 +383,7 @@ function Show-TuiMenuCheckbox {
             $leftPad = [Math]::Max(1, [Math]::Floor(($boxW - $titleBar.Length - 2) / 2))
             $rightPad = [Math]::Max(0, $boxW - $titleBar.Length - 2 - $leftPad)
             $paddedTitle = "$boxColor$($C.TL)$($C.Horiz * $leftPad)$titleBar$($C.Horiz * $rightPad)$($C.TR)$($TuiC.Reset)"
-            Write-TuiLine -X 3 -Y $top -Text $paddedTitle
+            Write-TuiLine -X $boxX -Y $top -Text $paddedTitle
 
             $endVis = [Math]::Min($scrollOff + $maxVis, $opts.Count)
             for ($vi = $scrollOff; $vi -lt $endVis; $vi++) {
@@ -392,16 +404,17 @@ function Show-TuiMenuCheckbox {
                     $padding = [Math]::Max(0, $innerW - $prefixLen)
                 }
                 if ($vi -eq $idx) {
-                    $line = "$($C.Vert) $box $($TuiC.Reverse)$label$($TuiC.Reset)$desc$(' ' * $padding)$($C.Vert)"
+                    $arrow = "$($TuiC.Cyan)$($C.SelectArrow)$($TuiC.Reset)"
+                    $line = "$($C.Vert) $arrow $box $($TuiC.Bold)$($TuiC.White)$label$($TuiC.Reset)$desc$(' ' * $padding)$($C.Vert)"
                 } else {
-                    $line = "$($C.Vert) $box $label$desc$(' ' * $padding)$($C.Vert)"
+                    $line = "$($C.Vert)   $box $label$desc$(' ' * $padding)$($C.Vert)"
                 }
-                Write-TuiLine -X 3 -Y $y -Text "$boxColor$line$($TuiC.Reset)"
+                Write-TuiLine -X $boxX -Y $y -Text "$boxColor$line$($TuiC.Reset)"
             }
 
             for ($vi = $endVis; $vi -lt $scrollOff + $maxVis; $vi++) {
                 $y = $top + 1 + ($vi - $scrollOff)
-                Write-TuiLine -X 3 -Y $y -Text "$boxColor$($C.Vert)$(' ' * $boxW)$($C.Vert)$($TuiC.Reset)"
+                Write-TuiLine -X $boxX -Y $y -Text "$boxColor$($C.Vert)$(' ' * $boxW)$($C.Vert)$($TuiC.Reset)"
             }
 
             $scrollTxt = ""
@@ -419,12 +432,12 @@ function Show-TuiMenuCheckbox {
             } else {
                 $botBar = "$($C.BL)$($C.Horiz * $innerW)$($C.BR)"
             }
-            Write-TuiLine -X 3 -Y ($top + $maxVis + 1) -Text "$boxColor$botBar$($TuiC.Reset)"
+            Write-TuiLine -X $boxX -Y ($top + $maxVis + 1) -Text "$boxColor$botBar$($TuiC.Reset)"
 
             $helpRaw = " $($C.Horiz * 3) Space toggle  $($C.ArrowUp)$($C.ArrowDn)/j/k nav  PgUp/PgDn  Enter OK $($C.Horiz * 3)"
             $helpMax = [Math]::Max(4, $boxW - 2)
             $help = if ($helpRaw.Length -gt $helpMax) { $helpRaw.Substring(0, $helpMax) } else { $helpRaw }
-            Write-TuiLine -X 3 -Y ($top + $maxVis + 2) -Text "$($TuiC.Dim)$help$($TuiC.Reset)"
+            Write-TuiLine -X $boxX -Y ($top + $maxVis + 2) -Text "$($TuiC.Dim)$help$($TuiC.Reset)"
 
             Send-TuiFrame
 

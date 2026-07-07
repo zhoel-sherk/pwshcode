@@ -164,7 +164,12 @@ $C.White   = "$ESC[97m"
 $C.Grey    = "$ESC[90m"
 
 function Write-Muted   { param($Msg) Write-Host "$($C.Grey)$Msg$($C.Reset)" }
-function Write-Step    { param($Msg) Write-Host "`n $($C.Bold)$($C.Cyan)◆$($C.Reset) $($C.Bold)$Msg$($C.Reset)" }
+function Write-Step    {
+    param($Msg)
+    $script:StepCurrent++
+    $counter = "$($C.Grey)[$($C.Cyan)$($script:StepCurrent)/$($script:StepTotal)$($C.Grey)]$($C.Reset)"
+    Write-Host "`n $($C.Bold)$($C.Cyan)◆$($C.Reset) $($C.Bold)$Msg$($C.Reset) $counter"
+}
 function Write-OK      { param($Msg) Write-Host "   $($C.Green)✔$($C.Reset) $Msg" }
 function Write-Fail    { param($Msg) Write-Host "   $($C.Red)✘$($C.Reset) $Msg" }
 function Write-Info    { param($Msg) Write-Host "   $($C.Blue)ℹ$($C.Reset) $Msg" }
@@ -234,7 +239,7 @@ function Show-ProgressBar($Percent, $Label = "") {
     $w = [Math]::Floor((Get-SafeWindowWidth) * 0.35)
     $filled = [Math]::Floor($w * $Percent / 100)
     $empty = $w - $filled
-    $bar = "$($C.Green)$('#' * $filled)$($C.Grey)$('-' * $empty)$($C.Reset)"
+    $bar = "$($C.Green)$($TuiChars.BarFill * $filled)$($C.Grey)$($TuiChars.BarEmpty * $empty)$($C.Reset)"
     $pct = "$($C.Cyan)$([Math]::Floor($Percent))%$($C.Reset)"
     $line = "   $bar $pct $Label"
     Write-Host "`r$line" -NoNewline
@@ -732,6 +737,9 @@ function Install-ContextCompressor {
 #endregion
 
 #region ─── Main ─────────────────────────────────────────────
+$script:StepCurrent = 0
+$script:StepTotal = 8
+
 Clear-Screen
 Show-TuiBanner
 
@@ -912,9 +920,11 @@ $doneContent = $L.doneTitle
 $donePad = $doneW - 2 - $doneContent.Length
 $doneLeft = [Math]::Max(0, [Math]::Floor($donePad / 2))
 $doneRight = [Math]::Max(0, $donePad - $doneLeft)
-Write-Host "   $($C.Bold)$($C.Green)╔$('═' * ($doneW - 2))╗$($C.Reset)"
-Write-Host "   $($C.Bold)$($C.Green)║$(' ' * $doneLeft)$doneContent$(' ' * $doneRight)║$($C.Reset)"
-Write-Host "   $($C.Bold)$($C.Green)╚$('═' * ($doneW - 2))╝$($C.Reset)"
+$doneX = Get-TuiBoxX $doneW
+$doneIndent = ' ' * $doneX
+Write-Host "$doneIndent$($C.Bold)$($C.Green)╔$('═' * ($doneW - 2))╗$($C.Reset)"
+Write-Host "$doneIndent$($C.Bold)$($C.Green)║$(' ' * $doneLeft)$doneContent$(' ' * $doneRight)║$($C.Reset)"
+Write-Host "$doneIndent$($C.Bold)$($C.Green)╚$('═' * ($doneW - 2))╝$($C.Reset)"
 Write-Host ""
 
 Write-Step $L.whatNext
