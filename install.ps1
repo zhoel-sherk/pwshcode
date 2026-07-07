@@ -262,7 +262,6 @@ $RU = @{
   profileBackup = "Бэкап: {0}"
   profileReplaced = "`$PROFILE заменён"
 
-  navUpDownCheck = "(↑↓ навигация, Space — переключить, Enter — OK)"
   selectSkills = "Выберите скиллы для opencode:"
   noSkills = "Папка skills/ не найдена"
   notSelected = "не выбраны"
@@ -418,7 +417,6 @@ $EN = @{
   profileBackup = "Backup: {0}"
   profileReplaced = "`$PROFILE replaced"
 
-  navUpDownCheck = "(↑↓ navigate, Space — toggle, Enter — OK)"
   selectSkills = "Select opencode skills:"
   noSkills = "skills/ directory not found"
   notSelected = "none selected"
