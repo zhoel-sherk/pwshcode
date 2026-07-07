@@ -545,7 +545,7 @@ $EN = @{
 $L = $RU
 
 #region ─── TuiEngine ─────────────────────────────────────────
-. (Join-Path $PSScriptRoot 'tui-engine.ps1' -ErrorAction SilentlyContinue)
+$tuiPath = Join-Path ($PSScriptRoot ?? $repoRoot) 'tui-engine.ps1'; if (Test-Path $tuiPath) { . $tuiPath }
 #endregion
 
 #region ─── Prerequisites ────────────────────────────────────
@@ -795,7 +795,7 @@ if ($allSkills.Count -eq 0) {
         }
         @{ label = $_.Name; desc = $desc }
     }
-    $skillSelections = Show-MenuCheckbox $L.selectSkills $skillOptions
+    $skillSelections = Show-TuiMenuCheckbox $L.selectSkills $skillOptions
 }
 
 # ─── Context compressor selection ────────────────────────────
